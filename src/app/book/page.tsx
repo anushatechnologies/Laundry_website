@@ -741,7 +741,50 @@ export default function BookingWizardPage() {
                         {/* Care Services for this Garment */}
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-slate-100">
                           {prices.slice(0, 3).map((price) => {
-                            const isAdded = justAddedClothId === `${cloth.id}-${price.serviceId}`;
+                            const itemKey = `${cloth.id}-${price.serviceId}`;
+                            const cartItem = cart.items.find((i) => i.id === itemKey);
+                            const qty = cartItem ? cartItem.quantity : 0;
+                            const isAdded = justAddedClothId === itemKey;
+
+                            if (qty > 0) {
+                              return (
+                                <div
+                                  key={price.id}
+                                  className="flex w-full items-center justify-between rounded-xl border border-[#5B214F]/40 bg-[#F7F0F2] px-2.5 py-1.5 text-xs transition"
+                                >
+                                  <span className="font-bold text-[#2B1326] text-[11px] truncate">{price.serviceName}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="font-black text-[#5B214F] text-xs">₹{price.price * qty}</span>
+                                    <div className="flex items-center rounded-lg bg-white border border-[#5B214F]/30 p-0.5 shadow-2xs">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateCartQuantity(itemKey, qty - 1);
+                                        }}
+                                        className="w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:bg-[#5B214F] hover:text-white transition cursor-pointer"
+                                        title="Decrease quantity"
+                                      >
+                                        <Minus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                      <span className="w-5 text-center font-black text-xs text-[#2B1326]">{qty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateCartQuantity(itemKey, qty + 1);
+                                        }}
+                                        className="w-5 h-5 rounded flex items-center justify-center text-[#5B214F] hover:bg-[#5B214F] hover:text-white transition cursor-pointer"
+                                        title="Increase quantity"
+                                      >
+                                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return (
                               <button
                                 key={price.id}
