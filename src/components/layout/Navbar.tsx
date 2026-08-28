@@ -327,11 +327,11 @@ export const Navbar: React.FC = () => {
               </button>
             ) : null}
 
-            {/* Cart Button with Count Badge */}
+            {/* Cart Button with Count Badge (Desktop / Tablet) */}
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2.5 rounded-xl border border-[#E8DDE1] bg-white hover:bg-[#F7F0F2] text-[#2B1326] hover:text-[#5B214F] transition cursor-pointer"
+              className="hidden sm:inline-flex relative p-2.5 rounded-xl border border-[#E8DDE1] bg-white hover:bg-[#F7F0F2] text-[#2B1326] hover:text-[#5B214F] transition cursor-pointer"
               aria-label="View Cart"
             >
               <ShoppingBag className="w-5 h-5" />
@@ -351,12 +351,12 @@ export const Navbar: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
 
-            {/* Mobile Hamburger Menu Toggle (3 Horizontal Lines) */}
+            {/* Mobile Hamburger Menu (Only 3 Horizontal Lines on Mobile) */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="lg:hidden p-2.5 rounded-xl border border-[#E8DDE1] bg-[#F7F0F2] hover:bg-[#EBDDE4] text-[#5B214F] active:scale-95 transition cursor-pointer flex items-center justify-center shrink-0"
-              aria-label="Open mobile menu"
+              className="lg:hidden p-2.5 rounded-2xl border border-[#E8DDE1] bg-[#F7F0F2] hover:bg-[#EBDDE4] text-[#5B214F] active:scale-95 transition cursor-pointer flex items-center justify-center shrink-0 shadow-2xs"
+              aria-label="Open navigation menu"
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6 stroke-[2.5]" />
