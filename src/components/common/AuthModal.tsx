@@ -198,54 +198,23 @@ export function AuthModal() {
     setLoading(true);
     try {
       // 1. Real Firebase Phone Auth confirmation
+      let verifiedIdToken: string | null = null;
       if (confirmationResult) {
         try {
           const userCredential = await confirmationResult.confirm(otpCode);
-          const idToken = await userCredential.user.getIdToken();
-          const endpoint = isNewUser ? `${API}/customers/register` : `${API}/customers/login`;
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
-            },
-            body: isNewUser ? JSON.stringify({ name: name.trim(), email: email.trim() }) : undefined,
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            const expiresAt = Date.now() + (data.expiresIn || 900) * 1000;
-            localStorage.setItem('lf_access', data.accessToken);
-            localStorage.setItem('lf_refresh', data.refreshToken);
-            localStorage.setItem('lf_expires_at', String(expiresAt));
-            localStorage.setItem('lf_user', JSON.stringify(data.user));
-
-            mergeCartOnLogin();
-            window.dispatchEvent(new Event('lf-auth-changed'));
-
-            const userName = data.user?.name ?? name ?? 'Customer';
-            showToast(
-              isNewUser
-                ? `Welcome to LaundryFresh, ${userName.split(' ')[0]}! 🎉`
-                : `Signed in as ${userName.split(' ')[0]}! 👋`,
-              'success'
-            );
-
-            const targetRedirect = authRedirectUrl;
-            closeAuthModal();
-            if (targetRedirect) {
-              router.push(targetRedirect);
-            }
-            return;
-          }
+          verifiedIdToken = await userCredential.user.getIdToken();
         } catch (fbErr: any) {
           console.warn('[Firebase Auth] confirm error, trying backend verify fallback:', fbErr?.message);
         }
       }
 
-      // 2. Direct Backend OTP Fallback
-      const res = await fetch(`${API}/customers/verify-otp`, {
+      // 2. Direct verify-otp endpoint on Backend
+      const verifyRes = await fetch(`${API}/customers/verify-otp`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(verifiedIdToken ? { Authorization: `Bearer ${verifiedIdToken}` } : {}),
+        },
         body: JSON.stringify({
           phone,
           otp: otpCode,
@@ -253,40 +222,69 @@ export function AuthModal() {
           email: email.trim(),
         }),
       });
+      const verifyData = await verifyRes.json().catch(() => ({}));
+
+      if (verifyRes.ok && verifyData.success) {
+        const expiresAt = Date.now() + (verifyData.expiresIn || 900) * 1000;
+        localStorage.setItem('lf_access', verifyData.accessToken);
+        localStorage.setItem('lf_refresh', verifyData.refreshToken);
+        localStorage.setItem('lf_expires_at', String(expiresAt));
+        localStorage.setItem('lf_user', JSON.stringify(verifyData.user));
+
+        mergeCartOnLogin();
+        window.dispatchEvent(new Event('lf-auth-changed'));
+
+        const userName = verifyData.user?.name ?? name ?? 'Customer';
+        showToast(
+          isNewUser
+            ? `Welcome to LaundryFresh, ${userName.split(' ')[0]}! 🎉`
+            : `Signed in as ${userName.split(' ')[0]}! 👋`,
+          'success'
+        );
+
+        const targetRedirect = authRedirectUrl;
+        closeAuthModal();
+        if (targetRedirect) {
+          router.push(targetRedirect);
+        }
+        return;
+      }
+
+      // 3. Fallback to /register or /login route
+      const endpoint = isNewUser ? `${API}/customers/register` : `${API}/customers/login`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(verifiedIdToken ? { Authorization: `Bearer ${verifiedIdToken}` } : {}),
+        },
+        body: JSON.stringify({
+          phone,
+          ...(isNewUser ? { name: name.trim(), email: email.trim() } : {}),
+        }),
+      });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Invalid OTP code.');
+      if (res.ok && data.success) {
+        const expiresAt = Date.now() + (data.expiresIn || 900) * 1000;
+        localStorage.setItem('lf_access', data.accessToken);
+        localStorage.setItem('lf_refresh', data.refreshToken);
+        localStorage.setItem('lf_expires_at', String(expiresAt));
+        localStorage.setItem('lf_user', JSON.stringify(data.user));
+
+        mergeCartOnLogin();
+        window.dispatchEvent(new Event('lf-auth-changed'));
+
+        const userName = data.user?.name ?? name ?? 'Customer';
+        showToast(`Welcome back, ${userName.split(' ')[0]}! 🎉`, 'success');
+        closeAuthModal();
+        if (authRedirectUrl) router.push(authRedirectUrl);
+        return;
       }
 
-      // Save tokens
-      const expiresAt = Date.now() + (data.expiresIn || 900) * 1000;
-      localStorage.setItem('lf_access', data.accessToken);
-      localStorage.setItem('lf_refresh', data.refreshToken);
-      localStorage.setItem('lf_expires_at', String(expiresAt));
-      localStorage.setItem('lf_user', JSON.stringify(data.user));
-
-      // Merge any existing cart items seamlessly
-      mergeCartOnLogin();
-
-      window.dispatchEvent(new Event('lf-auth-changed'));
-
-      const userName = data.user?.name ?? name ?? 'Customer';
-      showToast(
-        isNewUser
-          ? `Welcome to LaundryFresh, ${userName.split(' ')[0]}! 🎉`
-          : `Signed in as ${userName.split(' ')[0]}! 👋`,
-        'success'
-      );
-
-      const targetRedirect = authRedirectUrl;
-      closeAuthModal();
-
-      if (targetRedirect) {
-        router.push(targetRedirect);
-      }
+      throw new Error(verifyData.message || data.message || 'Invalid or expired OTP. Please try again.');
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Verification failed.', 'error');
+      showToast(err instanceof Error ? err.message : 'Could not verify OTP. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
