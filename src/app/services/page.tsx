@@ -18,8 +18,6 @@ import {
   ArrowRight,
   Scale,
   Clock,
-  Shirt,
-  Sparkle,
   ShoppingBag,
 } from 'lucide-react';
 import { ClothType, ServicePriceItem } from '@/types';
@@ -31,11 +29,11 @@ export default function ServicesPage() {
     priceMatrix,
     pricingSettings,
     cart,
-    addPerItemCloth,
+    cartTotals,
+    addClothItemToCart,
     addToCart,
     updateCartQuantity,
     showToast,
-    setIsCartOpen,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'GARMENTS' | 'PER_KG'>('GARMENTS');
@@ -89,7 +87,7 @@ export default function ServicesPage() {
 
   // Direct 1-Tap Add/Update
   const handleAddGarmentService = (cloth: ClothType, priceItem: ServicePriceItem) => {
-    addPerItemCloth(cloth, priceItem, 1);
+    addClothItemToCart(cloth, priceItem, 1);
     const itemKey = `${cloth.id}-${priceItem.serviceId}`;
     setJustAddedId(itemKey);
     setTimeout(() => setJustAddedId(null), 1200);
@@ -106,7 +104,7 @@ export default function ServicesPage() {
         id: `custom-pkg-${service.id}`,
         serviceMasterId: service.id,
         name: `${service.name} (Bulk Wash by Weight)`,
-        price: service.basePrice,
+        price: service.baseKgPrice || 79,
         description: service.description || '',
         icon: service.icon || '🧺',
         turnaroundTime: `${service.turnaroundHours || 24} hours`,
@@ -289,7 +287,6 @@ export default function ServicesPage() {
                             const itemKey = `${cloth.id}-${opt.serviceId}`;
                             const cartItem = cart.items.find((i) => i.id === itemKey);
                             const qty = cartItem ? cartItem.quantity : 0;
-                            const isJustAdded = justAddedId === itemKey;
 
                             return (
                               <div
@@ -403,7 +400,7 @@ export default function ServicesPage() {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-extrabold text-sm text-[#2B1326]">{srv.name}</span>
-                        <span className="font-black text-[#5B214F] text-sm">₹{srv.basePrice}/KG</span>
+                        <span className="font-black text-[#5B214F] text-sm">₹{srv.baseKgPrice || 79}/KG</span>
                       </div>
                       <p className="text-xs text-[#6F626A] line-clamp-2">{srv.description}</p>
                       <span className="text-[10px] text-[#9A8D94] mt-2 block font-medium">
@@ -466,7 +463,7 @@ export default function ServicesPage() {
                     <ShoppingBag className="w-5 h-5 text-[#D6B36A]" />
                     <span>
                       Add {kgWeight} KG {selectedKgService.name} (₹
-                      {selectedKgService.basePrice * kgWeight})
+                      {(selectedKgService.baseKgPrice || 79) * kgWeight})
                     </span>
                   </>
                 )}
@@ -477,19 +474,19 @@ export default function ServicesPage() {
       </main>
 
       {/* Floating Bottom Cart Bar when items exist in bag */}
-      {cart.items.length > 0 && (
+      {cartTotals.itemCount > 0 && (
         <div className="fixed bottom-4 left-4 right-4 z-40 max-w-lg mx-auto animate-in slide-in-from-bottom-5 duration-300">
           <div className="bg-[#2B1326] text-white rounded-2xl p-3.5 shadow-2xl border border-white/10 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#5B214F] flex items-center justify-center text-white font-black text-sm shrink-0">
-                {cart.itemCount}
+                {cartTotals.itemCount}
               </div>
               <div>
                 <p className="text-xs font-bold text-white/80">
-                  {cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'} in Bag
+                  {cartTotals.itemCount} {cartTotals.itemCount === 1 ? 'item' : 'items'} in Bag
                 </p>
                 <p className="text-sm font-black text-[#D6B36A]">
-                  ₹{cart.subtotal.toFixed(0)}{' '}
+                  ₹{cartTotals.itemTotal.toFixed(0)}{' '}
                   <span className="text-[10px] font-normal text-white/60">
                     (+ GST {pricingSettings.taxPercentage}%)
                   </span>
@@ -497,22 +494,13 @@ export default function ServicesPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
-              >
-                View Bag
-              </button>
-              <Link
-                href="/book"
-                className="px-4 py-2 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs flex items-center gap-1 shadow-md shadow-[#5B214F]/40 transition cursor-pointer"
-              >
-                <span>Book Pickup</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+            <Link
+              href="/book"
+              className="px-4 py-2.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-[#5B214F]/40 transition cursor-pointer"
+            >
+              <span>Proceed to Book</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       )}

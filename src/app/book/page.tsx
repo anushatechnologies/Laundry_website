@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  Clock,
   Clock3,
   CreditCard,
   MapPin,
