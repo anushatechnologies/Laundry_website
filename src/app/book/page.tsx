@@ -711,105 +711,132 @@ export default function BookingWizardPage() {
                   </div>
 
                   {/* Garments Grid */}
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {catalogItems.map(({ cloth, prices }) => (
                       <article
                         key={cloth.id}
-                        className="rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 transition-all hover:border-[#5B214F]/40 hover:shadow-md bg-white flex flex-col justify-between"
+                        className="rounded-3xl border border-[#E8DDE1] p-4 sm:p-5 transition-all hover:border-[#B76E79] hover:shadow-md bg-white flex flex-col justify-between"
                       >
                         <div>
-                          <div className="flex items-center justify-between gap-2.5 mb-2.5">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <GarmentImage
-                                name={cloth.name}
-                                icon={cloth.icon}
-                                imageUrl={cloth.imageUrl}
-                                categoryTag={cloth.categoryTag}
-                                size="md"
-                                className="w-10 h-10 rounded-xl shadow-2xs shrink-0"
-                              />
-                              <div className="min-w-0">
-                                <h3 className="font-extrabold text-xs sm:text-sm text-[#2B1326] truncate">{cloth.name}</h3>
-                                <span className="text-[9px] font-extrabold text-[#B76E79] uppercase block truncate">
+                          {/* Garment Header */}
+                          <div className="flex items-center gap-3 mb-2.5">
+                            <GarmentImage
+                              name={cloth.name}
+                              icon={cloth.icon}
+                              imageUrl={cloth.imageUrl}
+                              categoryTag={cloth.categoryTag}
+                              size="md"
+                              className="w-12 h-12 rounded-2xl shadow-2xs shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-black text-sm sm:text-base text-[#2B1326] leading-tight font-poppins truncate">
+                                  {cloth.name}
+                                </h3>
+                                <span className="text-[9px] font-black uppercase tracking-wider text-[#5B214F] bg-[#F7F0F2] px-2 py-0.5 rounded-full shrink-0 border border-[#E8DDE1]">
                                   {cloth.categoryLabel}
                                 </span>
                               </div>
+                              {cloth.description && (
+                                <p className="text-[11px] text-[#6F626A] font-medium truncate mt-0.5">
+                                  {cloth.description}
+                                </p>
+                              )}
                             </div>
                           </div>
 
-                          <p className="line-clamp-1 text-[10px] text-slate-500 mb-2">
-                            {cloth.description || 'Premium fabric care with doorstep pickup.'}
-                          </p>
-                        </div>
+                          {/* Care Services for this Garment */}
+                          <div className="space-y-2 pt-2.5 border-t border-[#F2EAEF]">
+                            {prices.map((price) => {
+                              const itemKey = `${cloth.id}-${price.serviceId}`;
+                              const cartItem = cart.items.find((i) => i.id === itemKey);
+                              const qty = cartItem ? cartItem.quantity : 0;
+                              const isAdded = justAddedClothId === itemKey;
 
-                        {/* Care Services for this Garment */}
-                        <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                          {prices.slice(0, 3).map((price) => {
-                            const itemKey = `${cloth.id}-${price.serviceId}`;
-                            const cartItem = cart.items.find((i) => i.id === itemKey);
-                            const qty = cartItem ? cartItem.quantity : 0;
-                            const isAdded = justAddedClothId === itemKey;
+                              const getServiceIcon = (name: string) => {
+                                const lower = name.toLowerCase();
+                                if (lower.includes('dry clean')) return '👔';
+                                if (lower.includes('steam')) return '💨';
+                                if (lower.includes('iron')) return '✨';
+                                if (lower.includes('fold')) return '🧺';
+                                if (lower.includes('stain') || lower.includes('bleach')) return '🧼';
+                                return '✨';
+                              };
 
-                            if (qty > 0) {
                               return (
                                 <div
                                   key={price.id}
-                                  className="flex w-full items-center justify-between rounded-xl border border-[#5B214F]/40 bg-[#F7F0F2] px-2.5 py-1.5 text-xs transition gap-2"
+                                  className={`p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
+                                    qty > 0
+                                      ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/20'
+                                      : 'bg-[#FCF9F7] border-[#E8DDE1] hover:bg-white hover:border-[#5B214F]/40'
+                                  }`}
                                 >
-                                  <span className="font-bold text-[#2B1326] text-[11px] truncate flex-1">{price.serviceName}</span>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className="font-black text-[#5B214F] text-xs">₹{price.price * qty}</span>
-                                    <div className="flex items-center rounded-lg bg-white border border-[#5B214F]/30 p-0.5 shadow-2xs">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          updateCartQuantity(itemKey, qty - 1);
-                                        }}
-                                        className="w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:bg-[#5B214F] hover:text-white transition cursor-pointer"
-                                        title="Decrease quantity"
-                                      >
-                                        <Minus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                      <span className="w-4 text-center font-black text-xs text-[#2B1326]">{qty}</span>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          updateCartQuantity(itemKey, qty + 1);
-                                        }}
-                                        className="w-5 h-5 rounded flex items-center justify-center text-[#5B214F] hover:bg-[#5B214F] hover:text-white transition cursor-pointer"
-                                        title="Increase quantity"
-                                      >
-                                        <Plus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
+                                  {/* Service Name & Price */}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs">{getServiceIcon(price.serviceName)}</span>
+                                      <span className="font-extrabold text-xs text-[#2B1326] truncate">
+                                        {price.serviceName}
+                                      </span>
                                     </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-xs font-black text-[#5B214F]">
+                                        ₹{price.price}
+                                        <span className="text-[10px] font-normal text-slate-500"> /pc</span>
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        {price.turnaroundHours}h
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Action: Stepper or + ADD */}
+                                  <div className="shrink-0">
+                                    {qty > 0 ? (
+                                      <div className="flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-xs">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateCartQuantity(itemKey, qty - 1);
+                                          }}
+                                          className="w-7 h-7 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                          title="Decrease quantity"
+                                        >
+                                          <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                                        </button>
+                                        <span className="w-6 text-center font-black text-xs text-white">
+                                          {qty}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateCartQuantity(itemKey, qty + 1);
+                                          }}
+                                          className="w-7 h-7 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                          title="Increase quantity"
+                                        >
+                                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddGarment(cloth.id, price.serviceId)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-xs shadow-2xs transition active:scale-95 cursor-pointer"
+                                      >
+                                        <Plus className="w-3.5 h-3.5 text-[#D6B36A] stroke-[3]" />
+                                        <span>ADD</span>
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               );
-                            }
-
-                            return (
-                              <div
-                                key={price.id}
-                                className={`flex w-full items-center justify-between rounded-xl border px-2.5 py-1.5 text-xs transition gap-2 ${
-                                  isAdded
-                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                                    : 'border-slate-200 bg-slate-50/70 hover:border-[#5B214F] hover:bg-[#F7F0F2]'
-                                }`}
-                              >
-                                <span className="font-bold text-slate-700 text-[11px] truncate flex-1">{price.serviceName}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddGarment(cloth.id, price.serviceId)}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#5B214F] hover:bg-[#48193F] text-white font-bold text-xs shadow-2xs transition shrink-0 cursor-pointer active:scale-95"
-                                >
-                                  <span>₹{price.price}</span>
-                                  <Plus className="w-3 h-3 text-[#D6B36A] stroke-[2.5]" />
-                                </button>
-                              </div>
-                            );
-                          })}
+                            })}
+                          </div>
                         </div>
                       </article>
                     ))}
@@ -817,7 +844,7 @@ export default function BookingWizardPage() {
 
                   {!catalogItems.length && (
                     <div className="py-12 text-center text-sm text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      No matching garments found for "{query}".
+                      No matching garments found for &ldquo;{query}&rdquo;.
                     </div>
                   )}
                 </div>
