@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useApp } from '@/context/AppContext';
+import { useSearchParams } from 'next/navigation';
 import {
   Check,
   Sparkles,
@@ -26,8 +27,12 @@ import {
 import Link from 'next/link';
 import { loadRazorpayCheckout } from '@/lib/api';
 
-export default function SubscriptionsPage() {
+function SubscriptionsContent() {
   const { showToast, subscriptionPlans, openAuthModal, isLoggedIn, currentUser } = useApp();
+  const searchParams = useSearchParams();
+  const planQuery = searchParams ? searchParams.get('plan') : null;
+  const autoOpen = searchParams ? searchParams.get('auto') : null;
+
   const [selectedDuration, setSelectedDuration] = useState<'ALL' | '1M' | '3M' | '12M'>('ALL');
   const [activeModalPlan, setActiveModalPlan] = useState<any | null>(null);
   const [subscribedPlans, setSubscribedPlans] = useState<string[]>([]);
@@ -129,6 +134,26 @@ export default function SubscriptionsPage() {
         },
       ];
 
+  // Auto-open plan checkout modal when plan is passed from homepage
+  useEffect(() => {
+    if (planQuery && plans.length > 0) {
+      const matched = plans.find(
+        (p) =>
+          p.id === planQuery ||
+          p.slug === planQuery ||
+          p.id?.toLowerCase().includes(planQuery.toLowerCase()) ||
+          p.slug?.toLowerCase().includes(planQuery.toLowerCase())
+      );
+      if (matched) {
+        if (!isLoggedIn) {
+          openAuthModal(`/subscriptions?plan=${matched.id}&auto=1`);
+        } else {
+          setActiveModalPlan(matched);
+        }
+      }
+    }
+  }, [planQuery, autoOpen, plans, isLoggedIn]);
+
   const filteredPlans = plans.filter((p) => {
     if (!p.isActive) return false;
     if (selectedDuration === 'ALL') return true;
@@ -140,7 +165,7 @@ export default function SubscriptionsPage() {
 
   const handleOpenSubscribeModal = (plan: any) => {
     if (!isLoggedIn) {
-      openAuthModal('/subscriptions');
+      openAuthModal(`/subscriptions?plan=${plan.id}&auto=1`);
       return;
     }
     setActiveModalPlan(plan);
@@ -507,5 +532,13 @@ export default function SubscriptionsPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function SubscriptionsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FDF8FA] flex items-center justify-center text-sm font-bold text-[#5B214F]">Loading Subscription Passes...</div>}>
+      <SubscriptionsContent />
+    </Suspense>
   );
 }

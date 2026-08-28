@@ -185,14 +185,14 @@ export const SubscriptionCards: React.FC = () => {
 
                 <div className="pt-2">
                   <Link
-                    href="/subscriptions"
+                    href={`/subscriptions?plan=${plan.id || plan.slug}&auto=1`}
                     className={`w-full py-3.5 rounded-xl font-extrabold text-xs text-center flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
                       plan.popular
                         ? 'bg-[#5B214F] hover:bg-[#48193F] text-white border border-[#D6B36A]/40'
                         : 'bg-[#5B214F] hover:bg-[#48193F] text-white'
                     }`}
                   >
-                    <span>Subscribe to Pass</span>
+                    <span>Subscribe to {plan.name}</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#D6B36A]" />
                   </Link>
                 </div>
