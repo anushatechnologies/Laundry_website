@@ -175,36 +175,53 @@ export function AuthModal() {
     }
   };
 
-  const handleOtpChange = (i: number, val: string) => {
-    const v = val.replace(/\D/g, '').slice(-1);
-    const n = [...otp];
-    n[i] = v;
-    setOtp(n);
-    if (v && i < 5) otpRefs.current[i + 1]?.focus();
-  };
+  // ── WebOTP API: Auto-detect incoming SMS OTP on Mobile Browsers ──
+  useEffect(() => {
+    if (step !== 'OTP' && step !== 'REG_OTP') return;
+    if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
 
-  const handleOtpKey = (i: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-  };
+    const ac = new AbortController();
+    try {
+      (navigator.credentials as any)
+        .get({
+          otp: { transport: ['sms'] },
+          signal: ac.signal,
+        })
+        .then((otpCredential: any) => {
+          if (otpCredential && otpCredential.code) {
+            const rawCode = otpCredential.code.replace(/\D/g, '').slice(0, 6);
+            if (rawCode.length === 6) {
+              const digits = rawCode.split('');
+              setOtp(digits);
+              showToast('✨ OTP Auto-detected from SMS! Verifying...', 'success');
+              executeVerifyOtp(rawCode);
+            }
+          }
+        })
+        .catch(() => {
+          // Ignore abort or timeout
+        });
+    } catch {}
 
-  const otpCode = otp.join('');
+    return () => {
+      try {
+        ac.abort();
+      } catch {}
+    };
+  }, [step, confirmationResult]);
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 6) {
-      showToast('Please enter the 6-digit OTP', 'error');
-      return;
-    }
+  const executeVerifyOtp = async (codeToVerify: string) => {
+    if (!codeToVerify || codeToVerify.length !== 6) return;
     setLoading(true);
     try {
       // 1. Real Firebase Phone Auth confirmation
       let verifiedIdToken: string | null = null;
       if (confirmationResult) {
         try {
-          const userCredential = await confirmationResult.confirm(otpCode);
+          const userCredential = await confirmationResult.confirm(codeToVerify);
           verifiedIdToken = await userCredential.user.getIdToken();
         } catch (fbErr: any) {
-          console.warn('[Firebase Auth] confirm error, trying backend verify fallback:', fbErr?.message);
+          console.warn('[Firebase Auth] confirm notice:', fbErr?.message);
         }
       }
 
@@ -217,7 +234,7 @@ export function AuthModal() {
         },
         body: JSON.stringify({
           phone,
-          otp: otpCode,
+          otp: codeToVerify,
           name: name.trim(),
           email: email.trim(),
         }),
@@ -276,18 +293,88 @@ export function AuthModal() {
         window.dispatchEvent(new Event('lf-auth-changed'));
 
         const userName = data.user?.name ?? name ?? 'Customer';
-        showToast(`Welcome back, ${userName.split(' ')[0]}! 🎉`, 'success');
-        closeAuthModal();
-        if (authRedirectUrl) router.push(authRedirectUrl);
-        return;
-      }
+        showToast(`Welcome, ${userName.split(' ')[0]}! 🎉`, 'success');
 
-      throw new Error(verifyData.message || data.message || 'Invalid or expired OTP. Please try again.');
+        const targetRedirect = authRedirectUrl;
+        closeAuthModal();
+        if (targetRedirect) {
+          router.push(targetRedirect);
+        }
+      } else {
+        throw new Error(verifyData.message || data.message || 'Invalid verification code.');
+      }
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Could not verify OTP. Please try again.', 'error');
+      showToast(err instanceof Error ? err.message : 'Invalid code. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOtpChange = (i: number, val: string) => {
+    // If user pasted multi-digit OTP or mobile auto-filled all 6 digits into first box:
+    const digitsOnly = val.replace(/\D/g, '');
+    if (digitsOnly.length > 1) {
+      const pastedDigits = digitsOnly.slice(0, 6).split('');
+      const newOtp = ['', '', '', '', '', ''];
+      pastedDigits.forEach((d, idx) => {
+        if (idx < 6) newOtp[idx] = d;
+      });
+      setOtp(newOtp);
+      if (pastedDigits.length === 6) {
+        executeVerifyOtp(newOtp.join(''));
+      } else {
+        const nextIdx = Math.min(5, pastedDigits.length);
+        otpRefs.current[nextIdx]?.focus();
+      }
+      return;
+    }
+
+    const v = digitsOnly.slice(-1);
+    const n = [...otp];
+    n[i] = v;
+    setOtp(n);
+
+    if (v && i < 5) {
+      otpRefs.current[i + 1]?.focus();
+    }
+
+    // Auto-verify if all 6 digits are filled!
+    if (v && n.every((d) => d !== '')) {
+      executeVerifyOtp(n.join(''));
+    }
+  };
+
+  const handleOtpKey = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pastedData) return;
+    const digits = pastedData.split('');
+    const newOtp = ['', '', '', '', '', ''];
+    digits.forEach((d, idx) => {
+      if (idx < 6) newOtp[idx] = d;
+    });
+    setOtp(newOtp);
+    if (digits.length === 6) {
+      executeVerifyOtp(newOtp.join(''));
+    } else {
+      const nextIdx = Math.min(5, digits.length);
+      otpRefs.current[nextIdx]?.focus();
+    }
+  };
+
+  const otpCode = otp.join('');
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length !== 6) {
+      showToast('Please enter the 6-digit OTP', 'error');
+      return;
+    }
+    await executeVerifyOtp(otpCode);
   };
 
   const handleResend = async () => {
@@ -301,30 +388,34 @@ export function AuthModal() {
         body: JSON.stringify({ phone, name, email }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.devOtp) setOtp(data.devOtp);
-
+      if (data.devOtp) {
+        showToast(`Dev OTP: ${data.devOtp}`, 'info');
+      }
       setResendTimer(60);
-      showToast(`OTP resent to +91 ${phone}`, 'success');
+      showToast('New OTP sent to your phone', 'success');
     } catch {
-      showToast('Resend failed. Try again.', 'error');
+      showToast('Failed to resend OTP', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-8"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close button */}
+        onClick={closeAuthModal}
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+      />
+
+      {/* Modal Card */}
+      <div className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#E8DDE1] z-10 animate-in zoom-in-95 duration-200">
+        {/* Close Button */}
         <button
-          type="button"
           onClick={closeAuthModal}
-          className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+          className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition cursor-pointer"
         >
-          <X className="h-5 w-5" />
+          <X className="w-5 h-5" />
         </button>
 
         {/* Header Icon */}
@@ -341,7 +432,7 @@ export function AuthModal() {
             <p className="text-xs text-slate-500">
               {step === 'PHONE' && 'Enter mobile number to save your bag & schedule pickup'}
               {step === 'REGISTER' && 'One-time registration for seamless doorstep service'}
-              {(step === 'OTP' || step === 'REG_OTP') && `Enter code sent to +91 ${phone}`}
+              {(step === 'OTP' || step === 'REG_OTP') && `Auto-detecting SMS sent to +91 ${phone}`}
             </p>
           </div>
         </div>
@@ -374,7 +465,7 @@ export function AuthModal() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                   placeholder="98765 43210"
-                  className="w-full px-3.5 py-3 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 tracking-wider"
+                  className="w-full px-3.5 py-3 text-sm font-bold text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400 tracking-wider"
                 />
               </div>
             </div>
@@ -388,34 +479,15 @@ export function AuthModal() {
               <span>{loading ? 'Sending OTP…' : 'Continue with OTP'}</span>
               {!loading && <ArrowRight className="w-4 h-4 ml-1" />}
             </button>
-
-            <div className="flex items-center justify-center gap-2 pt-2 text-[11px] text-slate-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#5B214F]" />
-              <span>Instant OTP verification · No password needed</span>
-            </div>
           </form>
         )}
 
         {/* ── STEP 2: REGISTER ── */}
         {step === 'REGISTER' && (
           <form onSubmit={handleRegisterContinue} className="mt-6 space-y-4">
-            <div className="p-3 bg-[#F7F0F2] rounded-xl border border-indigo-100 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#5B214F]" />
-                <span className="font-extrabold text-slate-800">+91 {phone}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStep('PHONE')}
-                className="text-[11px] font-bold text-[#5B214F] hover:underline cursor-pointer"
-              >
-                Change
-              </button>
-            </div>
-
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                Full Name *
+                Full Name <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center rounded-xl border border-slate-200 px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#5B214F]">
                 <User className="w-4 h-4 text-slate-400 mr-2" />
@@ -432,7 +504,7 @@ export function AuthModal() {
 
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                Email Address <span className="text-slate-400 font-normal lowercase">(for invoices &amp; receipts)</span>
+                Email Address <span className="text-slate-400 font-normal lowercase">(optional)</span>
               </label>
               <div className="flex items-center rounded-xl border border-slate-200 px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#5B214F]">
                 <Mail className="w-4 h-4 text-slate-400 mr-2" />
@@ -455,11 +527,6 @@ export function AuthModal() {
               <span>{loading ? 'Sending SMS OTP…' : 'Send SMS OTP to Mobile'}</span>
               {!loading && <ArrowRight className="w-4 h-4 ml-1" />}
             </button>
-
-            <div className="flex items-center justify-center gap-2 pt-1 text-[11px] text-slate-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#5B214F]" />
-              <span>SMS OTP will be sent directly to +91 {phone}</span>
-            </div>
           </form>
         )}
 
@@ -467,10 +534,15 @@ export function AuthModal() {
         {(step === 'OTP' || step === 'REG_OTP') && (
           <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
             <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-2">
-                6-Digit OTP Code
-              </label>
-              <div className="flex gap-2 justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                  6-Digit OTP Code
+                </label>
+                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  ⚡ Auto-Detect Active
+                </span>
+              </div>
+              <div className="flex gap-2 justify-between" onPaste={handlePaste}>
                 {otp.map((d, i) => (
                   <input
                     key={i}
@@ -479,7 +551,9 @@ export function AuthModal() {
                     }}
                     type="text"
                     inputMode="numeric"
-                    maxLength={1}
+                    autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                    pattern="[0-9]*"
+                    maxLength={6}
                     value={d}
                     onChange={(e) => handleOtpChange(i, e.target.value)}
                     onKeyDown={(e) => handleOtpKey(i, e)}

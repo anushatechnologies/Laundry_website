@@ -142,35 +142,43 @@ export default function LoginPage() {
     }
   };
 
-  /* ── OTP box helpers ── */
-  const handleOtpChange = (i: number, val: string) => {
-    const v = val.replace(/\D/g, '').slice(-1);
-    const n = [...otp];
-    n[i] = v;
-    setOtp(n);
-    if (v && i < 5) otpRefs.current[i + 1]?.focus();
-  };
+  // ── WebOTP API: Auto-detect incoming SMS OTP on Mobile Browsers ──
+  useEffect(() => {
+    if (step !== 'OTP' && step !== 'REG_OTP') return;
+    if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
 
-  const handleOtpKey = (i: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-  };
+    const ac = new AbortController();
+    try {
+      (navigator.credentials as any)
+        .get({
+          otp: { transport: ['sms'] },
+          signal: ac.signal,
+        })
+        .then((otpCredential: any) => {
+          if (otpCredential && otpCredential.code) {
+            const rawCode = otpCredential.code.replace(/\D/g, '').slice(0, 6);
+            if (rawCode.length === 6) {
+              const digits = rawCode.split('');
+              setOtp(digits);
+              showToast('✨ OTP Auto-detected from SMS! Verifying...', 'success');
+              executeVerifyOtp(rawCode);
+            }
+          }
+        })
+        .catch(() => {
+          // Ignore abort or timeout
+        });
+    } catch {}
 
-  const fillAutoOtp = (code: string) => {
-    if (!code || code.length !== 6) return;
-    const digits = code.split('');
-    setOtp(digits);
-    showToast('OTP auto-filled!', 'success');
-  };
+    return () => {
+      try {
+        ac.abort();
+      } catch {}
+    };
+  }, [step]);
 
-  const otpCode = otp.join('');
-
-  /* ── STEP 3: verify OTP → call backend direct verify → save tokens ── */
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 6) {
-      showToast('Please enter the 6-digit OTP', 'error');
-      return;
-    }
+  const executeVerifyOtp = async (codeToVerify: string) => {
+    if (!codeToVerify || codeToVerify.length !== 6) return;
     setLoading(true);
     try {
       const res = await fetch(`${API}/customers/verify-otp`, {
@@ -178,7 +186,7 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone,
-          otp: otpCode,
+          otp: codeToVerify,
           name: name.trim(),
           email: email.trim(),
         }),
@@ -209,6 +217,81 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  /* ── OTP box helpers ── */
+  const handleOtpChange = (i: number, val: string) => {
+    const digitsOnly = val.replace(/\D/g, '');
+    if (digitsOnly.length > 1) {
+      const pastedDigits = digitsOnly.slice(0, 6).split('');
+      const newOtp = ['', '', '', '', '', ''];
+      pastedDigits.forEach((d, idx) => {
+        if (idx < 6) newOtp[idx] = d;
+      });
+      setOtp(newOtp);
+      if (pastedDigits.length === 6) {
+        executeVerifyOtp(newOtp.join(''));
+      } else {
+        const nextIdx = Math.min(5, pastedDigits.length);
+        otpRefs.current[nextIdx]?.focus();
+      }
+      return;
+    }
+
+    const v = digitsOnly.slice(-1);
+    const n = [...otp];
+    n[i] = v;
+    setOtp(n);
+
+    if (v && i < 5) {
+      otpRefs.current[i + 1]?.focus();
+    }
+
+    if (v && n.every((d) => d !== '')) {
+      executeVerifyOtp(n.join(''));
+    }
+  };
+
+  const handleOtpKey = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pastedData) return;
+    const digits = pastedData.split('');
+    const newOtp = ['', '', '', '', '', ''];
+    digits.forEach((d, idx) => {
+      if (idx < 6) newOtp[idx] = d;
+    });
+    setOtp(newOtp);
+    if (digits.length === 6) {
+      executeVerifyOtp(newOtp.join(''));
+    } else {
+      const nextIdx = Math.min(5, digits.length);
+      otpRefs.current[nextIdx]?.focus();
+    }
+  };
+
+  const fillAutoOtp = (code: string) => {
+    if (!code || code.length !== 6) return;
+    const digits = code.split('');
+    setOtp(digits);
+    showToast('OTP auto-filled!', 'success');
+    executeVerifyOtp(code);
+  };
+
+  const otpCode = otp.join('');
+
+  /* ── STEP 3: verify OTP → call backend direct verify → save tokens ── */
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length !== 6) {
+      showToast('Please enter the 6-digit OTP', 'error');
+      return;
+    }
+    await executeVerifyOtp(otpCode);
   };
 
   /* ── Resend OTP ── */
@@ -478,10 +561,15 @@ export default function LoginPage() {
 
                   <form onSubmit={handleVerifyOtp} className="space-y-5">
                     <div>
-                      <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-3">
-                        6-Digit Verification Code
-                      </label>
-                      <div className="flex gap-2 justify-between">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="block text-xs font-black text-slate-600 uppercase tracking-wider">
+                          6-Digit Verification Code
+                        </label>
+                        <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          ⚡ Auto-Detect Active
+                        </span>
+                      </div>
+                      <div className="flex gap-2 justify-between" onPaste={handlePaste}>
                         {otp.map((d, i) => (
                           <input
                             key={i}
@@ -490,7 +578,9 @@ export default function LoginPage() {
                             }}
                             type="text"
                             inputMode="numeric"
-                            maxLength={1}
+                            autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                            pattern="[0-9]*"
+                            maxLength={6}
                             value={d}
                             onChange={(e) => handleOtpChange(i, e.target.value)}
                             onKeyDown={(e) => handleOtpKey(i, e)}
