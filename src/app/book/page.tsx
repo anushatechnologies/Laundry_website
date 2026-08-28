@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarDays,
   Check,
@@ -117,8 +117,12 @@ function loadRazorpayCheckout() {
   });
 }
 
-export default function BookingWizardPage() {
+function BookingWizardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const stepQuery = searchParams ? searchParams.get('step') : null;
+  const serviceQuery = searchParams ? searchParams.get('service') : null;
+  const dateQuery = searchParams ? searchParams.get('date') : null;
   const {
     addAddress,
     addClothItemToCart,
@@ -203,10 +207,32 @@ export default function BookingWizardPage() {
   }, [savedAddresses, selectedAddressId]);
 
   useEffect(() => {
+    if (stepQuery === '2' || stepQuery === 'pickup') {
+      if (cart.items.length > 0) setStep(1);
+    } else if (stepQuery === '3' || stepQuery === 'pay') {
+      if (cart.items.length > 0) setStep(2);
+    }
+  }, [stepQuery, cart.items.length]);
+
+  useEffect(() => {
+    if (serviceQuery) {
+      const lower = serviceQuery.toLowerCase();
+      if (lower.includes('per_kg') || lower.includes('wash-fold') || lower.includes('bulk') || lower.includes('weight')) {
+        setActiveCatalogMode('PER_KG');
+      }
+    }
+    if (dateQuery) {
+      setSelectedPickupDate(dateQuery);
+    }
+  }, [serviceQuery, dateQuery]);
+
+  useEffect(() => {
     const handleAuthChanged = () => {
       if (cart.items.length > 0) {
         setStep(1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }
     };
     window.addEventListener('lf-auth-changed', handleAuthChanged);
@@ -452,12 +478,10 @@ export default function BookingWizardPage() {
       showToast('Your cart is empty! Please add at least 1 garment or bulk wash service.', 'error');
       return;
     }
-    if (!isLoggedIn) {
-      openAuthModal('/book?step=2');
-      return;
-    }
     setStep(1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const continueToPayment = () => {
@@ -595,16 +619,16 @@ export default function BookingWizardPage() {
     <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col">
       <Navbar />
 
-      <main className="flex-1 mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8 w-full">
+      <main className="flex-1 mx-auto max-w-7xl px-4 pb-28 pt-28 sm:pt-36 lg:pt-32 w-full">
         {/* Top Stepper Banner */}
-        <section className="overflow-hidden rounded-3xl bg-[#2B1326] px-6 py-7 text-white shadow-xl sm:px-10 sm:py-8 border border-slate-800">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <section className="overflow-hidden rounded-3xl bg-[#2B1326] px-5 py-6 sm:px-10 sm:py-8 text-white shadow-xl border border-slate-800">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/20 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-indigo-200">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#5B214F]" /> 100% Guaranteed Doorstep Pickup &amp; Care
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-0.5 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#D6B36A]">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#D6B36A]" /> 100% Guaranteed Doorstep Care
               </div>
-              <h1 className="mt-2.5 text-2xl sm:text-3xl font-black tracking-tight font-poppins">
-                Schedule Your Laundry Pickup
+              <h1 className="mt-2 text-xl sm:text-3xl font-black tracking-tight font-poppins text-white leading-tight">
+                Schedule Laundry Pickup
               </h1>
               <p className="mt-1 text-xs sm:text-sm text-slate-300">
                 Select your clothes, choose a convenient pickup window, and let our experts take care of the rest.
@@ -612,31 +636,32 @@ export default function BookingWizardPage() {
             </div>
 
             {/* Stepper Progress */}
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800">
+            <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-3 bg-slate-900/80 p-2 rounded-2xl border border-slate-800 shrink-0">
               {steps.map((s, idx) => (
-                <div
+                <button
                   key={s.num}
-                  onClick={() => idx < step && setStep(idx)}
-                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition ${
+                  type="button"
+                  onClick={() => idx <= step && setStep(idx)}
+                  className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl transition cursor-pointer ${
                     idx === step
-                      ? 'bg-[#5B214F] text-white shadow-md shadow-indigo-500/30'
+                      ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/40'
                       : idx < step
-                      ? 'bg-slate-800 text-slate-200 cursor-pointer hover:bg-slate-700'
-                      : 'text-slate-500'
+                      ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+                      : 'text-slate-500 hover:text-slate-400'
                   }`}
                 >
                   <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-black shrink-0 ${
                       idx < step ? 'bg-emerald-500 text-white' : idx === step ? 'bg-white text-[#5B214F]' : 'bg-slate-800 text-slate-400'
                     }`}
                   >
-                    {idx < step ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : s.num}
+                    {idx < step ? <Check className="w-3 h-3 stroke-[3]" /> : s.num}
                   </span>
                   <div className="text-left hidden sm:block">
                     <span className="text-xs font-bold block leading-none">{s.title}</span>
-                    <span className="text-[9px] opacity-70 block">{s.desc}</span>
+                    <span className="text-[9px] opacity-70 block mt-0.5">{s.desc}</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -1716,5 +1741,22 @@ export default function BookingWizardPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function BookingWizardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FCF9F7] flex flex-col items-center justify-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-[#5B214F] text-white flex items-center justify-center animate-pulse shadow-lg">
+            <ShoppingBag className="w-6 h-6 text-[#D6B36A]" />
+          </div>
+          <p className="text-xs font-bold text-[#5B214F]">Loading Booking Details…</p>
+        </div>
+      }
+    >
+      <BookingWizardContent />
+    </Suspense>
   );
 }
