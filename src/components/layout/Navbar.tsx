@@ -342,23 +342,27 @@ export const Navbar: React.FC = () => {
               )}
             </button>
 
-            {/* Book Pickup Primary CTA */}
+            {/* Book Pickup Primary CTA (Desktop / Tablet) */}
             <Link
               href="/book"
-              className="px-5 py-2.5 bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-[#5B214F]/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="hidden sm:inline-flex px-4 sm:px-5 py-2.5 bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-[#5B214F]/20 transition-all items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
             >
               <span>Book Pickup</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
 
-            {/* Mobile Hamburger Menu Toggle */}
+            {/* Mobile Hamburger Menu Toggle (3 Horizontal Lines) */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="lg:hidden p-2 rounded-xl text-[#2B1326] hover:bg-[#F7F0F2] transition cursor-pointer"
-              aria-label="Open menu"
+              className="lg:hidden p-2.5 rounded-xl border border-[#E8DDE1] bg-[#F7F0F2] hover:bg-[#EBDDE4] text-[#5B214F] active:scale-95 transition cursor-pointer flex items-center justify-center shrink-0"
+              aria-label="Open mobile menu"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6 stroke-[2.5]" />
+              ) : (
+                <Menu className="w-6 h-6 stroke-[2.5]" />
+              )}
             </button>
           </div>
         </div>
