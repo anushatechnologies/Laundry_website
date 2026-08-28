@@ -317,7 +317,7 @@ export default function BookingWizardPage() {
           }));
 
     return slotSource.map((slot) => {
-      const isPast = 'isPast' in slot && typeof slot.isPast === 'boolean' ? slot.isPast : isSlotPastOrClosed(slot.date, slot.startTime, 30);
+      const isPast = isSlotPastOrClosed(slot.date, slot.startTime, 30);
       return {
         ...slot,
         isPast,
