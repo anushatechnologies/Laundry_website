@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useApp } from '@/context/AppContext';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Check,
   Sparkles,
@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { loadRazorpayCheckout } from '@/lib/api';
 
 function SubscriptionsContent() {
+  const router = useRouter();
   const { showToast, subscriptionPlans, openAuthModal, isLoggedIn, currentUser } = useApp();
   const searchParams = useSearchParams();
   const planQuery = searchParams ? searchParams.get('plan') : null;
@@ -146,13 +147,14 @@ function SubscriptionsContent() {
       );
       if (matched) {
         if (!isLoggedIn) {
-          openAuthModal(`/subscriptions?plan=${matched.id}&auto=1`);
+          showToast('🔒 Please sign in with your mobile number to activate your subscription pass.', 'info');
+          router.push(`/login?redirect=/subscriptions&plan=${matched.id || matched.slug}&auto=1`);
         } else {
           setActiveModalPlan(matched);
         }
       }
     }
-  }, [planQuery, autoOpen, plans, isLoggedIn]);
+  }, [planQuery, autoOpen, plans, isLoggedIn, router, showToast]);
 
   const filteredPlans = plans.filter((p) => {
     if (!p.isActive) return false;
@@ -165,7 +167,8 @@ function SubscriptionsContent() {
 
   const handleOpenSubscribeModal = (plan: any) => {
     if (!isLoggedIn) {
-      openAuthModal(`/subscriptions?plan=${plan.id}&auto=1`);
+      showToast('🔒 Please sign in with your mobile number to activate your subscription plan.', 'info');
+      router.push(`/login?redirect=/subscriptions&plan=${plan.id || plan.slug}&auto=1`);
       return;
     }
     setActiveModalPlan(plan);
@@ -174,7 +177,8 @@ function SubscriptionsContent() {
   const handleConfirmSubscription = async () => {
     if (!activeModalPlan) return;
     if (!isLoggedIn) {
-      openAuthModal('/subscriptions');
+      showToast('🔒 Please sign in with your mobile number to activate your subscription plan.', 'info');
+      router.push(`/login?redirect=/subscriptions&plan=${activeModalPlan.id || activeModalPlan.slug}&auto=1`);
       return;
     }
 
@@ -234,7 +238,7 @@ function SubscriptionsContent() {
     <div className="min-h-screen flex flex-col bg-[#FCF9F7]">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full space-y-12 sm:space-y-16">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-36 lg:pt-32 pb-16 w-full space-y-12 sm:space-y-16">
         {/* Header Banner */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-2 bg-[#F7F0F2] border border-[#E8DDE1] text-[#5B214F] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">

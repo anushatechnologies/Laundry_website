@@ -434,6 +434,18 @@ export default function LoginPage() {
                     </div>
                   )}
 
+                  {redirectTarget.includes('/subscriptions') && (
+                    <div className="flex items-start gap-2.5 rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-amber-950 text-xs shadow-xs animate-in fade-in">
+                      <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-extrabold text-sm block text-amber-900">Sign in to Activate Subscription Pass</span>
+                        <span className="text-xs text-amber-800 leading-tight block mt-0.5">
+                          Activating your monthly pass and linking laundry balance requires a verified 10-digit mobile number.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <h2 className="text-lg font-black text-[#241A21]">Welcome to LaundryFresh</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
