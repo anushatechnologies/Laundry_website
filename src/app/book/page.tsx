@@ -1666,7 +1666,7 @@ export default function BookingWizardPage() {
               </div>
               <div>
                 <div className="text-[10px] uppercase font-extrabold text-[#6F626A]">
-                  {cartTotals.totalItems} {cartTotals.totalItems === 1 ? 'Garment' : 'Garments'}
+                  {cartTotals.itemCount} {cartTotals.itemCount === 1 ? 'Garment' : 'Garments'}
                 </div>
                 <div className="text-base font-black text-[#5B214F] font-poppins leading-tight">
                   ₹{cartTotals.grandTotal}
