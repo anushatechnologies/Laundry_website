@@ -207,6 +207,17 @@ function BookingWizardContent() {
   }, [savedAddresses, selectedAddressId]);
 
   useEffect(() => {
+    if (selectedAddress) {
+      if (selectedAddress.contactPhone && !contactPhone) {
+        setContactPhone(selectedAddress.contactPhone.replace(/\D/g, '').slice(-10));
+      }
+      if (selectedAddress.contactName && !contactName) {
+        setContactName(selectedAddress.contactName);
+      }
+    }
+  }, [selectedAddress, contactPhone, contactName]);
+
+  useEffect(() => {
     if (stepQuery === '2' || stepQuery === 'pickup') {
       if (cart.items.length > 0) setStep(1);
     } else if (stepQuery === '3' || stepQuery === 'pay') {
@@ -478,6 +489,11 @@ function BookingWizardContent() {
       showToast('Your cart is empty! Please add at least 1 garment or bulk wash service.', 'error');
       return;
     }
+    if (!isLoggedIn) {
+      showToast('🔒 Please sign in with your mobile number to proceed with booking & schedule doorstep pickup.', 'info');
+      router.push('/login?redirect=/book&step=2');
+      return;
+    }
     setStep(1);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -490,7 +506,12 @@ function BookingWizardContent() {
       setStep(0);
       return;
     }
-    const cleanPhone = (contactPhone || currentUser.phone || '').replace(/\D/g, '');
+    if (!isLoggedIn) {
+      showToast('🔒 Please sign in with your mobile number to complete your booking.', 'info');
+      router.push('/login?redirect=/book&step=2');
+      return;
+    }
+    const cleanPhone = (contactPhone || selectedAddress?.contactPhone || currentUser.phone || '').replace(/\D/g, '');
     if (cleanPhone.length < 10) {
       showToast('Please provide a valid 10-digit mobile number for pickup updates.', 'error');
       return;
@@ -507,7 +528,9 @@ function BookingWizardContent() {
     setBookingSlots(selectedSlot.date || activePickupDate, `${selectedSlot.startTime} - ${selectedSlot.endTime}`);
     setOrderNotes(notes);
     setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const completeBooking = async () => {
@@ -516,7 +539,12 @@ function BookingWizardContent() {
       setStep(0);
       return;
     }
-    const cleanPhone = (contactPhone || currentUser.phone || '9876543210').replace(/\D/g, '');
+    if (!isLoggedIn) {
+      showToast('🔒 Please sign in with your mobile number to place order.', 'info');
+      router.push('/login?redirect=/book&step=3');
+      return;
+    }
+    const cleanPhone = (contactPhone || selectedAddress?.contactPhone || currentUser.phone || '9876543210').replace(/\D/g, '');
     if (cleanPhone.length < 10) {
       showToast('Please enter a valid 10-digit mobile number for pickup updates.', 'error');
       setStep(1);

@@ -61,8 +61,12 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, [resendTimer]);
 
+  const [redirectTarget, setRedirectTarget] = useState('');
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect') || '';
+    if (redirect) setRedirectTarget(redirect);
     const prefilledPhone = (params.get('phone') || '').replace(/\D/g, '').slice(-10);
     if (prefilledPhone) setPhone(prefilledPhone);
     if (params.get('name')) setName(params.get('name') || '');
@@ -418,8 +422,20 @@ export default function LoginPage() {
               {/* ── PHONE step ── */}
               {step === 'PHONE' && (
                 <div className="p-7 space-y-5">
+                  {redirectTarget.includes('/book') && (
+                    <div className="flex items-start gap-2.5 rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-amber-950 text-xs shadow-xs animate-in fade-in">
+                      <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-extrabold text-sm block text-amber-900">Sign in to Complete Booking</span>
+                        <span className="text-xs text-amber-800 leading-tight block mt-0.5">
+                          Doorstep pickup &amp; order scheduling requires a verified 10-digit mobile number.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
-                    <h2 className="text-lg font-black text-[#241A21]">Welcome back</h2>
+                    <h2 className="text-lg font-black text-[#241A21]">Welcome to LaundryFresh</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
                       Enter your mobile number and we’ll send a secure one-time code.
                     </p>
