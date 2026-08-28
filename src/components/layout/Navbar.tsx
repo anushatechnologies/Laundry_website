@@ -175,8 +175,15 @@ export const Navbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3 lg:gap-6">
           
           {/* LEFT: Logo & Deliver-To Pill */}
-          <div className="flex items-center gap-3 lg:gap-4 shrink-0">
-            <Link href="/" className="flex items-center gap-2.5 group">
+            <Link
+              href="/"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              className="flex items-center gap-2.5 group cursor-pointer"
+            >
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#5B214F] to-[#2B1326] flex items-center justify-center text-white shadow-md shadow-[#5B214F]/20 group-hover:scale-105 transition-transform shrink-0 border border-white/10">
                 <svg className="w-5 h-5 fill-current text-[#D6B36A]" viewBox="0 0 24 24">
                   <path d="M12 2C10.9 2 10 2.9 10 4H6C4.9 4 4 4.9 4 6V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V6C20 4.9 19.1 4 18 4H14C14 2.9 13.1 2 12 2ZM12 4C12.55 4 13 4.45 13 5C13 5.55 12.55 6 12 6C11.45 6 11 5.55 11 5C11 4.45 11.45 4 12 4ZM8 9H16C16.55 9 17 9.45 17 10C17 10.55 16.55 11 16 11H8C7.45 11 7 10.55 7 10C7 9.45 7.45 9 8 9ZM8 13H16C16.55 13 17 13.45 17 14C17 14.55 16.55 15 16 15H8C7.45 15 7 14.55 7 14C7 13.45 7.45 13 8 13Z" />
@@ -192,7 +199,7 @@ export const Navbar: React.FC = () => {
               </div>
             </Link>
 
-            {/* Deliver To Location Selector Pill */}
+            {/* Deliver To Location Selector Pill (Desktop) */}
             <button
               type="button"
               onClick={() => setIsPincodeModalOpen(true)}
@@ -201,7 +208,7 @@ export const Navbar: React.FC = () => {
               <MapPin className="w-3.5 h-3.5 text-[#5B214F]" />
               <span className="text-[11px] text-[#6F626A] font-medium">Deliver to</span>
               <span className="font-bold text-[#2B1326] text-xs">
-                {currentZone ? `${currentZone.pincode}, ${currentZone.areaName.split(' ')[0]}` : `${userPincode || '500072'}, Moosapet`}
+                {currentZone ? `${currentZone.pincode}, ${currentZone.areaName.split(' ')[0]}` : `${userPincode || '500081'}, Hitec City`}
               </span>
               <ChevronDown className="w-3 h-3 text-[#9A8D94] group-hover:text-[#5B214F] transition-colors shrink-0" />
             </button>
@@ -365,6 +372,39 @@ export const Navbar: React.FC = () => {
               )}
             </button>
           </div>
+        </div>
+
+        {/* Mobile Sub-Header: Deliver To Location / Allow Location Strip */}
+        <div className="lg:hidden bg-[#FCF9F7] border-t border-[#E8DDE1] px-4 py-2 flex items-center justify-between gap-2 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsPincodeModalOpen(true)}
+            className="flex items-center gap-2 min-w-0 text-left cursor-pointer flex-1 group"
+          >
+            <div className="w-6 h-6 rounded-full bg-[#5B214F]/10 text-[#5B214F] flex items-center justify-center shrink-0">
+              <MapPin className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1 text-[10px] text-[#6F626A] font-bold uppercase tracking-wider">
+                <span>Deliver to</span>
+                <ChevronDown className="w-2.5 h-2.5 text-[#5B214F]" />
+              </div>
+              <p className="text-xs font-black text-[#2B1326] truncate">
+                {currentZone
+                  ? `${currentZone.areaName.split('/')[0].trim()} (${userPincode || '500081'})`
+                  : `${userPincode ? `PIN ${userPincode}` : 'Select Hyderabad Location'}`}
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsPincodeModalOpen(true)}
+            className="px-2.5 py-1 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-[11px] shrink-0 shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1"
+          >
+            <MapPin className="w-3 h-3 text-[#D6B36A]" />
+            <span>{userPincode ? 'Change' : 'Allow Location'}</span>
+          </button>
         </div>
 
         {/* Mobile Dropdown Navigation */}

@@ -187,11 +187,49 @@ export const PincodeModal: React.FC<PincodeModalProps> = ({ isOpen, onClose }) =
           </div>
         </div>
 
+        {/* Primary Action: Allow Location Access (GPS) */}
+        <button
+          type="button"
+          onClick={handleDetectLocation}
+          disabled={isDetecting}
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-[#5B214F]/20 bg-gradient-to-r from-[#F7F0F2] via-white to-[#F7F0F2] hover:border-[#5B214F] p-3.5 text-left transition-all shadow-xs hover:shadow-md cursor-pointer group active:scale-98"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#5B214F] text-white flex items-center justify-center shadow-sm shrink-0">
+              {isDetecting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Navigation className="h-5 w-5 text-[#D6B36A] group-hover:rotate-45 transition-transform" />
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-black text-[#2B1326] flex items-center gap-1.5">
+                <span>{isDetecting ? 'Detecting device GPS…' : 'Allow Location Access'}</span>
+                <span className="text-[9px] bg-[#5B214F] text-white px-1.5 py-0.2 rounded font-extrabold uppercase">
+                  GPS
+                </span>
+              </p>
+              <p className="text-[11px] text-[#6F626A] font-medium mt-0.5">
+                Auto-detect current doorstep address in Hyderabad
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-black text-[#5B214F] shrink-0 group-hover:translate-x-0.5 transition-transform">
+            Detect ➔
+          </span>
+        </button>
+
+        {/* Divider with text */}
+        <div className="relative flex py-1 items-center">
+          <div className="flex-grow border-t border-slate-200"></div>
+          <span className="flex-shrink mx-3 text-[10px] font-black uppercase tracking-wider text-slate-400">
+            or enter pincode
+          </span>
+          <div className="flex-grow border-t border-slate-200"></div>
+        </div>
+
         {/* Manual Pincode Search Form */}
         <form onSubmit={handleManualSubmit} className="space-y-2">
-          <label className="block text-xs font-black uppercase tracking-wider text-slate-600">
-            Enter 6-Digit Pincode
-          </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
@@ -206,35 +244,20 @@ export const PincodeModal: React.FC<PincodeModalProps> = ({ isOpen, onClose }) =
                     evaluatePincode(val);
                   }
                 }}
-                placeholder="e.g. 500081, 500032"
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-[#5B214F] focus:ring-2 focus:ring-[#5B214F]/20 outline-none tracking-wider"
+                placeholder="e.g. 500081, 500032, 500072"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-[#5B214F] focus:ring-2 focus:ring-[#5B214F]/20 outline-none tracking-wider bg-[#FCF9F7]"
               />
             </div>
             <button
               type="submit"
               disabled={manualPin.length !== 6 || isChecking}
-              className="px-5 py-3 bg-[#5B214F] hover:bg-[#48193F] disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0"
+              className="px-5 py-3 bg-[#5B214F] hover:bg-[#48193F] disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
             >
               {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               <span>Check</span>
             </button>
           </div>
         </form>
-
-        {/* GPS Auto-Detect Button */}
-        <button
-          type="button"
-          onClick={handleDetectLocation}
-          disabled={isDetecting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#E8DDE1] bg-[#F7F0F2] hover:bg-[#EBDDE4] py-2.5 text-xs font-bold text-[#5B214F] transition cursor-pointer"
-        >
-          {isDetecting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Navigation className="h-4 w-4" />
-          )}
-          <span>{isDetecting ? 'Detecting device GPS…' : 'Use Current Location (GPS)'}</span>
-        </button>
 
         {/* Live Service Availability Feedback Box */}
         {statusResult && (
