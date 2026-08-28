@@ -207,17 +207,6 @@ function BookingWizardContent() {
   }, [savedAddresses, selectedAddressId]);
 
   useEffect(() => {
-    if (selectedAddress) {
-      if (selectedAddress.contactPhone && !contactPhone) {
-        setContactPhone(selectedAddress.contactPhone.replace(/\D/g, '').slice(-10));
-      }
-      if (selectedAddress.contactName && !contactName) {
-        setContactName(selectedAddress.contactName);
-      }
-    }
-  }, [selectedAddress, contactPhone, contactName]);
-
-  useEffect(() => {
     if (stepQuery === '2' || stepQuery === 'pickup') {
       if (cart.items.length > 0) setStep(1);
     } else if (stepQuery === '3' || stepQuery === 'pay') {
@@ -375,6 +364,17 @@ function BookingWizardContent() {
 
   const selectedSlot = availableSlots.find((slot) => slot.id === selectedSlotId && !slot.isPast) || availableSlots.find((s) => !s.isPast);
   const selectedAddress = savedAddresses.find((address) => address.id === selectedAddressId) || savedAddresses[0];
+
+  useEffect(() => {
+    if (selectedAddress) {
+      if (selectedAddress.contactPhone && !contactPhone) {
+        setContactPhone(selectedAddress.contactPhone.replace(/\D/g, '').slice(-10));
+      }
+      if (selectedAddress.contactName && !contactName) {
+        setContactName(selectedAddress.contactName);
+      }
+    }
+  }, [selectedAddress, contactPhone, contactName]);
 
   const handleAddGarment = (clothId: string, serviceId: string) => {
     const cloth = clothTypes.find((item) => item.id === clothId);
