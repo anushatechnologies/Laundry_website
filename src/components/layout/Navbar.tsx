@@ -365,7 +365,7 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Dropdown Navigation */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden border-t border-[#E8DDE1] bg-white px-4 py-4 space-y-2 shadow-2xl animate-in slide-in-from-top-2 duration-150">
+          <div className="lg:hidden border-t border-[#E8DDE1] bg-white px-4 py-5 space-y-4 shadow-2xl animate-in slide-in-from-top-2 duration-200 max-h-[85vh] overflow-y-auto">
             {/* Mobile Pincode Selector */}
             <button
               type="button"
@@ -373,54 +373,167 @@ export const Navbar: React.FC = () => {
                 setIsMobileMenuOpen(false);
                 setIsPincodeModalOpen(true);
               }}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-[#F7F0F2] border border-[#E8DDE1] text-xs font-bold text-[#2B1326]"
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#F7F0F2] border border-[#E8DDE1] text-xs font-bold text-[#2B1326] shadow-2xs cursor-pointer active:scale-98 transition"
             >
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#5B214F]" />
-                <span>Deliver to: {currentZone ? currentZone.areaName : userPincode || '500072'}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-white border border-[#E8DDE1] flex items-center justify-center text-[#5B214F] shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="text-left truncate">
+                  <span className="text-[10px] text-[#6F626A] block uppercase font-extrabold leading-none">Delivery Location</span>
+                  <span className="text-xs font-black text-[#2B1326] truncate block mt-0.5">
+                    {currentZone ? `${currentZone.pincode}, ${currentZone.areaName}` : `${userPincode || '500072'}, Moosapet`}
+                  </span>
+                </div>
               </div>
-              <ChevronDown className="w-4 h-4 text-[#6F626A]" />
+              <ChevronDown className="w-4 h-4 text-[#5B214F] shrink-0 ml-2" />
             </button>
 
-            <div className="divide-y divide-[#EEE5E8] pt-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="block py-2.5 text-xs font-bold text-[#2B1326] hover:text-[#5B214F]"
-                >
-                  {link.label}
-                </Link>
-              ))}
+            {/* User Account / Sign In Hero */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#5B214F] to-[#2B1326] text-white shadow-md">
+              {isSignedIn ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 text-white flex items-center justify-center font-black text-sm shrink-0">
+                      {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-extrabold text-sm truncate text-white leading-tight">
+                        {fullUserData?.name || userName || 'Customer'}
+                      </p>
+                      <p className="text-[11px] text-white/80 font-medium truncate mt-0.5">
+                        {fullUserData?.phone ? `+91 ${fullUserData.phone}` : 'Active Member'}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="px-3 py-1.5 rounded-xl bg-white text-[#5B214F] text-xs font-black shadow-sm shrink-0 active:scale-95 transition"
+                  >
+                    Dashboard
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-white">Welcome to LaundryFresh</h3>
+                    <p className="text-[11px] text-white/80">Sign in for saved orders &amp; discounts</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      openAuthModal('LOGIN');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-[#D6B36A] hover:bg-[#c49d52] text-[#2B1326] text-xs font-black shadow-md shrink-0 cursor-pointer active:scale-95 transition"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="pt-2">
-              {isSignedIn ? (
-                <Link
-                  href="/dashboard"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full py-2.5 rounded-xl bg-[#F7F0F2] text-[#5B214F] font-bold text-xs flex items-center justify-center gap-2"
+            {/* Popular Care Services */}
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6F626A] block mb-2 px-1">
+                Popular Services
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Dry Cleaning', icon: '👔', href: '/services?tab=GARMENTS' },
+                  { label: 'Wash & Fold (KG)', icon: '🧺', href: '/services?tab=PER_KG' },
+                  { label: 'Steam Pressing', icon: '💨', href: '/services?tab=GARMENTS' },
+                  { label: 'Shoe Laundry', icon: '👟', href: '/services?tab=GARMENTS' },
+                  { label: 'Curtains & Linen', icon: '🏡', href: '/services?tab=GARMENTS' },
+                  { label: 'Express 24h Wash', icon: '⚡', href: '/book' },
+                ].map((s) => (
+                  <Link
+                    key={s.label}
+                    href={s.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-2 p-2.5 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] hover:bg-[#F7F0F2] text-xs font-extrabold text-[#2B1326] transition active:scale-98"
+                  >
+                    <span className="text-base">{s.icon}</span>
+                    <span className="truncate">{s.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Navigation Links */}
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6F626A] block mb-2 px-1">
+                Navigation
+              </span>
+              <div className="rounded-2xl border border-[#E8DDE1] bg-[#FCF9F7] divide-y divide-[#E8DDE1] overflow-hidden">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-between px-4 py-3 text-xs font-extrabold text-[#2B1326] hover:bg-[#F7F0F2] hover:text-[#5B214F] transition"
+                  >
+                    <span>{link.label}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#B76E79]" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Actions (Book & Support) */}
+            <div className="space-y-2 pt-1">
+              <Link
+                href="/book"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full py-3.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#5B214F]/25 transition active:scale-95"
+              >
+                <span>Schedule Doorstep Pickup</span>
+                <ArrowRight className="w-4 h-4 text-[#D6B36A]" />
+              </Link>
+
+              <div className="flex gap-2">
+                <a
+                  href="tel:+919177671888"
+                  className="flex-1 py-2.5 rounded-xl border border-[#E8DDE1] text-xs font-bold text-center text-[#2B1326] bg-white hover:bg-slate-50 flex items-center justify-center gap-1.5"
                 >
-                  <User className="w-4 h-4" />
-                  <span>My Account</span>
-                </Link>
-              ) : (
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    openAuthModal('LOGIN');
-                  }}
-                  className="w-full py-2.5 rounded-xl border border-[#E8DDE1] text-[#2B1326] font-bold text-xs flex items-center justify-center gap-2"
+                  <span>📞 Call Support</span>
+                </a>
+                <a
+                  href="https://wa.me/919177671888"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold text-center hover:bg-emerald-700 flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  <User className="w-4 h-4" />
-                  <span>Sign In / Register</span>
-                </button>
-              )}
+                  <span>💬 WhatsApp</span>
+                </a>
+              </div>
             </div>
           </div>
         )}
       </header>
+
+      {/* ── MOBILE FLOATING CART BUTTON IN BOTTOM RIGHT ── */}
+      {mounted && cart.items && cart.items.length > 0 && pathname !== '/book' && (
+        <div className="fixed bottom-5 right-4 z-40 lg:hidden animate-in zoom-in-90 duration-200">
+          <button
+            type="button"
+            onClick={() => setIsCartOpen(true)}
+            className="flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-[#5B214F] to-[#2B1326] text-white shadow-[0_10px_30px_rgba(91,33,79,0.45)] border-2 border-white/30 active:scale-95 transition cursor-pointer hover:shadow-2xl"
+          >
+            <div className="relative">
+              <ShoppingBag className="w-5 h-5 text-[#D6B36A]" />
+              <span className="absolute -top-2 -right-2.5 min-w-5 h-5 px-1 rounded-full bg-[#D6B36A] text-[#2B1326] text-[10px] font-black flex items-center justify-center shadow-md">
+                {cart.items.reduce((s: number, i: any) => s + (i.quantity || 1), 0)}
+              </span>
+            </div>
+            <div className="text-left leading-tight">
+              <span className="text-[9px] uppercase font-extrabold text-white/80 block">View Bag</span>
+              <span className="text-xs font-black text-white font-poppins">₹{cartTotals.grandTotal}</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Cart Flyout Sidebar */}
       <CartFlyout isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
