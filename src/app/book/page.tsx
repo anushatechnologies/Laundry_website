@@ -711,35 +711,39 @@ export default function BookingWizardPage() {
                   </div>
 
                   {/* Garments Grid */}
-                  <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {catalogItems.map(({ cloth, prices }) => (
                       <article
                         key={cloth.id}
-                        className="rounded-2xl border border-slate-200/80 p-4 transition-all hover:border-indigo-300 hover:shadow-md bg-white flex flex-col justify-between"
+                        className="rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 transition-all hover:border-[#5B214F]/40 hover:shadow-md bg-white flex flex-col justify-between"
                       >
                         <div>
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <GarmentImage
-                              name={cloth.name}
-                              icon={cloth.icon}
-                              imageUrl={cloth.imageUrl}
-                              categoryTag={cloth.categoryTag}
-                              size="md"
-                              className="w-11 h-11 rounded-xl shadow-2xs shrink-0"
-                            />
-                            <span className="rounded-full bg-[#F7F0F2] px-2 py-0.5 text-[9px] font-bold text-[#5B214F] uppercase">
-                              {cloth.categoryLabel}
-                            </span>
+                          <div className="flex items-center justify-between gap-2.5 mb-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <GarmentImage
+                                name={cloth.name}
+                                icon={cloth.icon}
+                                imageUrl={cloth.imageUrl}
+                                categoryTag={cloth.categoryTag}
+                                size="md"
+                                className="w-10 h-10 rounded-xl shadow-2xs shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <h3 className="font-extrabold text-xs sm:text-sm text-[#2B1326] truncate">{cloth.name}</h3>
+                                <span className="text-[9px] font-extrabold text-[#B76E79] uppercase block truncate">
+                                  {cloth.categoryLabel}
+                                </span>
+                              </div>
+                            </div>
                           </div>
 
-                          <h3 className="font-extrabold text-sm text-[#2B1326]">{cloth.name}</h3>
-                          <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">
+                          <p className="line-clamp-1 text-[10px] text-slate-500 mb-2">
                             {cloth.description || 'Premium fabric care with doorstep pickup.'}
                           </p>
                         </div>
 
                         {/* Care Services for this Garment */}
-                        <div className="mt-3 space-y-1.5 pt-2 border-t border-slate-100">
+                        <div className="space-y-1.5 pt-2 border-t border-slate-100">
                           {prices.slice(0, 3).map((price) => {
                             const itemKey = `${cloth.id}-${price.serviceId}`;
                             const cartItem = cart.items.find((i) => i.id === itemKey);
@@ -750,9 +754,9 @@ export default function BookingWizardPage() {
                               return (
                                 <div
                                   key={price.id}
-                                  className="flex w-full items-center justify-between rounded-xl border border-[#5B214F]/40 bg-[#F7F0F2] px-2.5 py-1.5 text-xs transition"
+                                  className="flex w-full items-center justify-between rounded-xl border border-[#5B214F]/40 bg-[#F7F0F2] px-2.5 py-1.5 text-xs transition gap-2"
                                 >
-                                  <span className="font-bold text-[#2B1326] text-[11px] truncate">{price.serviceName}</span>
+                                  <span className="font-bold text-[#2B1326] text-[11px] truncate flex-1">{price.serviceName}</span>
                                   <div className="flex items-center gap-2 shrink-0">
                                     <span className="font-black text-[#5B214F] text-xs">₹{price.price * qty}</span>
                                     <div className="flex items-center rounded-lg bg-white border border-[#5B214F]/30 p-0.5 shadow-2xs">
@@ -767,7 +771,7 @@ export default function BookingWizardPage() {
                                       >
                                         <Minus className="w-3 h-3 stroke-[2.5]" />
                                       </button>
-                                      <span className="w-5 text-center font-black text-xs text-[#2B1326]">{qty}</span>
+                                      <span className="w-4 text-center font-black text-xs text-[#2B1326]">{qty}</span>
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -786,24 +790,24 @@ export default function BookingWizardPage() {
                             }
 
                             return (
-                              <button
+                              <div
                                 key={price.id}
-                                type="button"
-                                onClick={() => handleAddGarment(cloth.id, price.serviceId)}
-                                className={`flex w-full items-center justify-between rounded-xl border px-2.5 py-1.5 text-xs transition cursor-pointer ${
+                                className={`flex w-full items-center justify-between rounded-xl border px-2.5 py-1.5 text-xs transition gap-2 ${
                                   isAdded
                                     ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                                    : 'border-slate-200 hover:border-[#5B214F] hover:bg-[#F7F0F2]'
+                                    : 'border-slate-200 bg-slate-50/70 hover:border-[#5B214F] hover:bg-[#F7F0F2]'
                                 }`}
                               >
-                                <span className="font-bold text-slate-700 text-[11px] truncate">{price.serviceName}</span>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="font-black text-[#5B214F] text-xs">₹{price.price}</span>
-                                  <span className="p-1 rounded bg-indigo-100 text-[#5B214F] hover:bg-[#5B214F] hover:text-white transition">
-                                    <Plus className="w-3 h-3" />
-                                  </span>
-                                </div>
-                              </button>
+                                <span className="font-bold text-slate-700 text-[11px] truncate flex-1">{price.serviceName}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddGarment(cloth.id, price.serviceId)}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#5B214F] hover:bg-[#48193F] text-white font-bold text-xs shadow-2xs transition shrink-0 cursor-pointer active:scale-95"
+                                >
+                                  <span>₹{price.price}</span>
+                                  <Plus className="w-3 h-3 text-[#D6B36A] stroke-[2.5]" />
+                                </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -1651,6 +1655,36 @@ export default function BookingWizardPage() {
           </section>
         )}
       </main>
+
+      {/* ── MOBILE STICKY FLOATING CART BAR ── */}
+      {hasItems && step === 0 && (
+        <div className="fixed bottom-0 inset-x-0 p-3 bg-white/95 backdrop-blur-md border-t border-[#E8DDE1] shadow-[0_-8px_30px_rgba(43,19,38,0.12)] z-40 lg:hidden animate-in slide-in-from-bottom duration-200">
+          <div className="max-w-md mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-[#F7F0F2] border border-[#5B214F]/20 flex items-center justify-center text-[#5B214F] font-black shrink-0">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-extrabold text-[#6F626A]">
+                  {cartTotals.totalItems} {cartTotals.totalItems === 1 ? 'Garment' : 'Garments'}
+                </div>
+                <div className="text-base font-black text-[#5B214F] font-poppins leading-tight">
+                  ₹{cartTotals.grandTotal}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={continueToDetails}
+              className="px-5 py-3 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white text-xs font-extrabold shadow-md shadow-[#5B214F]/20 flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+            >
+              <span>Schedule Pickup</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#D6B36A]" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

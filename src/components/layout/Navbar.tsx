@@ -157,8 +157,12 @@ export const Navbar: React.FC = () => {
         </div>
       )}
 
-      {/* 2. MAIN HEADER NAVBAR */}
-      <div aria-hidden="true" className="h-20 w-full shrink-0" />
+      {/* 2. MAIN HEADER NAVBAR SPACER */}
+      <div
+        aria-hidden="true"
+        style={{ height: isAnnouncementVisible ? 80 + (announcementHeight || 36) : 80 }}
+        className="w-full shrink-0 transition-all duration-200"
+      />
 
       <header
         style={{ top: !isScrolled && isAnnouncementVisible ? announcementHeight : 0 }}
