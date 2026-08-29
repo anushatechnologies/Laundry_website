@@ -622,6 +622,27 @@ export default function LoginPage() {
                         ))}
                       </div>
 
+                      {/* Demo OTP Helper Banner */}
+                      <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 text-amber-900">
+                          <span className="text-sm">🔑</span>
+                          <span className="font-medium text-[11px]">
+                            Test / Demo OTP: <strong className="font-black text-[#5B214F]">123456</strong>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const demoDigits = ['1', '2', '3', '4', '5', '6'];
+                            setOtp(demoDigits);
+                            showToast('🔑 Filled Demo OTP: 123456', 'info');
+                          }}
+                          className="px-2.5 py-1 bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-[10px] rounded-lg cursor-pointer transition shadow-xs"
+                        >
+                          Auto-Fill
+                        </button>
+                      </div>
+
                       <div className="mt-3 flex items-center justify-between text-xs">
                         <button
                           type="button"
