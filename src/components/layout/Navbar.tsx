@@ -184,11 +184,11 @@ export const Navbar: React.FC = () => {
               }}
               className="flex items-center gap-2.5 group cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#5B214F] to-[#2B1326] flex items-center justify-center text-white shadow-md shadow-[#5B214F]/20 group-hover:scale-105 transition-transform shrink-0 border border-white/10">
-                <svg className="w-5 h-5 fill-current text-[#D6B36A]" viewBox="0 0 24 24">
-                  <path d="M12 2C10.9 2 10 2.9 10 4H6C4.9 4 4 4.9 4 6V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V6C20 4.9 19.1 4 18 4H14C14 2.9 13.1 2 12 2ZM12 4C12.55 4 13 4.45 13 5C13 5.55 12.55 6 12 6C11.45 6 11 5.55 11 5C11 4.45 11.45 4 12 4ZM8 9H16C16.55 9 17 9.45 17 10C17 10.55 16.55 11 16 11H8C7.45 11 7 10.55 7 10C7 9.45 7.45 9 8 9ZM8 13H16C16.55 13 17 13.45 17 14C17 14.55 16.55 15 16 15H8C7.45 15 7 14.55 7 14C7 13.45 7.45 13 8 13Z" />
-                </svg>
-              </div>
+              <img
+                src="/logo.png"
+                alt="LaundryFresh"
+                className="w-10 h-10 rounded-2xl object-contain bg-white p-0.5 shadow-md shadow-[#5B214F]/20 group-hover:scale-105 transition-transform shrink-0 border border-[#E8DDE1]"
+              />
               <div className="flex flex-col">
                 <span className="font-extrabold text-xl tracking-tight text-[#2B1326] leading-tight font-poppins">
                   LaundryFresh
