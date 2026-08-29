@@ -34,7 +34,6 @@ import {
   Layers,
   Shirt,
   Wind,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
@@ -56,7 +55,7 @@ declare global {
 }
 
 const steps = [
-  { num: 1, title: 'Select Garments' },
+  { num: 1, title: 'Select Items' },
   { num: 2, title: 'Slot & Address' },
   { num: 3, title: 'Review & Pay' },
 ];
@@ -167,7 +166,7 @@ function BookingWizardContent() {
 
   const hasItems = mounted && cart.items.length > 0;
 
-  // Active Service Tab: Default to Dry Cleaning or Steam Press
+  // Active Service Tab: Default to Dry Cleaning
   const [selectedServiceId, setSelectedServiceId] = useState<string>('srv-m-dry-clean');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('ALL');
@@ -249,13 +248,13 @@ function BookingWizardContent() {
     serviceMasters.find((s) => s.pricingType === 'PER_KG')?.id || 'srv-m-wash-fold'
   );
 
-  // Defined Service Tabs (The Clean Service-First Model)
+  // Defined Service Tabs (The Clean Horizontal Pill Model)
   const serviceTabs = [
-    { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔', desc: 'Suits, Silks & Designer Wear' },
-    { id: 'srv-m-steam-press', label: 'Steam Pressing', icon: '💨', desc: 'Crisp, Wrinkle-Free Finish' },
-    { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺', desc: 'Everyday Clothes & Towels' },
-    { id: 'srv-m-wash-iron', label: 'Wash & Steam Iron', icon: '✨', desc: 'Washed, Sanitized & Pressed' },
-    { id: 'PER_KG', label: 'By Weight (KG)', icon: '⚖️', desc: 'Bulk Everyday Laundry' },
+    { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔', desc: 'Silks & Suits' },
+    { id: 'srv-m-steam-press', label: 'Steam Press', icon: '💨', desc: 'Wrinkle-Free' },
+    { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺', desc: 'Everyday Casual' },
+    { id: 'srv-m-wash-iron', label: 'Wash & Iron', icon: '✨', desc: 'Sanitized & Pressed' },
+    { id: 'PER_KG', label: 'By Weight (KG)', icon: '⚖️', desc: 'Bulk Wash' },
   ];
 
   const categories = useMemo(() => {
@@ -659,12 +658,12 @@ function BookingWizardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col font-sans overflow-x-hidden w-full">
       <Navbar />
 
-      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-32 w-full">
+      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-32 w-full overflow-x-hidden">
         {/* ── CLEAN STEP WIZARD BAR ── */}
-        <div className="mb-4 bg-white rounded-2xl p-2.5 sm:p-3.5 border border-[#E8DDE1] shadow-2xs">
+        <div className="mb-4 bg-white rounded-2xl p-2.5 sm:p-3.5 border border-[#E8DDE1] shadow-2xs w-full">
           <div className="flex items-center justify-between gap-1 sm:gap-2 max-w-xl mx-auto">
             {steps.map((s, idx) => {
               const isActive = idx === step;
@@ -705,11 +704,11 @@ function BookingWizardContent() {
             STEP 1: CHOOSE SERVICE & GARMENTS (CLEAN & FAST)
         ───────────────────────────────────────────────────── */}
         {step === 0 && (
-          <section className={`grid gap-5 transition-all duration-300 ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-4xl mx-auto'}`}>
-            <div className="space-y-4">
+          <section className={`grid gap-5 transition-all duration-300 w-full ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-4xl mx-auto'}`}>
+            <div className="space-y-3.5 w-full">
               
-              {/* Top Service Tabs Ribbon (Clean, single-row selection) */}
-              <div className="bg-white rounded-3xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-3">
+              {/* Horizontal Scrollable Service Filter Ribbon (Clean Single Row) */}
+              <div className="bg-white rounded-3xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-3 w-full">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#5B214F] flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-[#D6B36A]" />
@@ -720,8 +719,8 @@ function BookingWizardContent() {
                   </span>
                 </div>
 
-                {/* 5 Clean Service Tabs */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
+                {/* Horizontal Scrollable Service Tabs (NO STACKING) */}
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full">
                   {serviceTabs.map((s) => {
                     const isSelected = selectedServiceId === s.id;
                     return (
@@ -729,21 +728,19 @@ function BookingWizardContent() {
                         key={s.id}
                         type="button"
                         onClick={() => setSelectedServiceId(s.id)}
-                        className={`p-2.5 sm:p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        className={`px-3.5 py-2 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
                           isSelected
                             ? 'bg-[#5B214F] text-white border-[#5B214F] shadow-md shadow-[#5B214F]/25 ring-2 ring-[#5B214F]/20'
                             : 'bg-[#FCF9F7] text-[#2B1326] border-[#E8DDE1] hover:border-[#5B214F]/40 hover:bg-white'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-base">{s.icon}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#D6B36A] stroke-[3]" />}
-                        </div>
-                        <div className="mt-1.5">
-                          <span className={`text-xs font-black block leading-tight ${isSelected ? 'text-white' : 'text-[#2B1326]'}`}>
+                        <span className="text-base">{s.icon}</span>
+                        <div className="text-left">
+                          <span className={`text-xs font-black block leading-tight whitespace-nowrap ${isSelected ? 'text-white' : 'text-[#2B1326]'}`}>
                             {s.label}
                           </span>
                         </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#D6B36A] stroke-[3] ml-0.5" />}
                       </button>
                     );
                   })}
@@ -751,8 +748,8 @@ function BookingWizardContent() {
 
                 {/* Search Bar + Category Ribbon (When viewing individual garments) */}
                 {selectedServiceId !== 'PER_KG' && (
-                  <div className="space-y-2 pt-2 border-t border-[#F2EAEF]">
-                    <div className="relative">
+                  <div className="space-y-2 pt-2 border-t border-[#F2EAEF] w-full">
+                    <div className="relative w-full">
                       <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-[#9A8D94]" />
                       <input
                         type="text"
@@ -772,7 +769,7 @@ function BookingWizardContent() {
                       )}
                     </div>
 
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar w-full">
                       {categories.map((item) => (
                         <button
                           key={item.key}
@@ -793,14 +790,14 @@ function BookingWizardContent() {
                 )}
               </div>
 
-              {/* 2. THE CLEAN GARMENT CATALOG (Single 1-Row Card per Garment!) */}
+              {/* 2. THE CLEAN GARMENT CATALOG (Single Row with BOLD VISIBLE + / - BUTTONS) */}
               {selectedServiceId !== 'PER_KG' && (
-                <div className="space-y-2">
+                <div className="space-y-2.5 w-full">
                   <div className="flex items-center justify-between px-1 text-xs text-[#6F626A] font-bold">
-                    <span>{activeGarments.length} Garments available for {serviceTabs.find((s) => s.id === selectedServiceId)?.label}</span>
+                    <span>{activeGarments.length} Items for {serviceTabs.find((s) => s.id === selectedServiceId)?.label}</span>
                   </div>
 
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2.5 sm:grid-cols-2 w-full">
                     {activeGarments.map(({ cloth, price }) => {
                       if (!price) return null;
                       const itemKey = `${cloth.id}-${price.serviceId}`;
@@ -810,31 +807,31 @@ function BookingWizardContent() {
                       return (
                         <div
                           key={cloth.id}
-                          className={`rounded-2xl border p-3 transition-all flex items-center justify-between gap-3 ${
+                          className={`w-full rounded-2xl border p-3 transition-all flex items-center justify-between gap-2 shadow-2xs ${
                             qty > 0
-                              ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/25 shadow-xs'
-                              : 'bg-white border-[#E8DDE1] hover:border-[#5B214F]/40 shadow-2xs'
+                              ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/25'
+                              : 'bg-white border-[#E8DDE1] hover:border-[#5B214F]/40'
                           }`}
                         >
                           {/* Left: Garment Thumbnail & Details */}
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                             <GarmentImage
                               name={cloth.name}
                               icon={cloth.icon}
                               imageUrl={cloth.imageUrl}
                               categoryTag={cloth.categoryTag}
                               size="md"
-                              className="w-11 h-11 rounded-xl shadow-2xs shrink-0 border border-[#E8DDE1]"
+                              className="w-12 h-12 rounded-xl shadow-2xs shrink-0 border border-[#E8DDE1]"
                             />
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1 overflow-hidden pr-1">
                               <h3 className="font-extrabold text-xs sm:text-sm text-[#2B1326] leading-tight truncate">
                                 {cloth.name}
                               </h3>
                               <p className="text-[10px] text-[#6F626A] truncate mt-0.5">
                                 {cloth.description || cloth.categoryLabel}
                               </p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs font-black text-[#5B214F]">
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-sm font-black text-[#5B214F]">
                                   ₹{price.price}
                                 </span>
                                 <span className="text-[9px] text-[#9A8D94] font-medium">
@@ -844,37 +841,37 @@ function BookingWizardContent() {
                             </div>
                           </div>
 
-                          {/* Right: + ADD / Stepper Button */}
-                          <div className="shrink-0">
+                          {/* Right: GUARANTEED VISIBLE + / - STEPPER BUTTON */}
+                          <div className="shrink-0 flex items-center justify-end">
                             {qty > 0 ? (
-                              <div className="flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-2xs">
+                              <div className="inline-flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-md">
                                 <button
                                   type="button"
                                   onClick={() => updateCartQuantity(itemKey, qty - 1)}
-                                  className="w-6 h-6 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white hover:bg-black/20 active:scale-90 transition font-black text-sm cursor-pointer"
                                   title="Decrease"
                                 >
-                                  <Minus className="w-3 h-3 stroke-[2.5]" />
+                                  −
                                 </button>
-                                <span className="w-5 text-center font-black text-xs text-white">
+                                <span className="w-6 text-center font-black text-xs text-white">
                                   {qty}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => updateCartQuantity(itemKey, qty + 1)}
-                                  className="w-6 h-6 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white hover:bg-black/20 active:scale-90 transition font-black text-sm cursor-pointer"
                                   title="Increase"
                                 >
-                                  <Plus className="w-3 h-3 stroke-[2.5]" />
+                                  +
                                 </button>
                               </div>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => handleAddGarment(cloth.id, price.serviceId)}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs shadow-2xs transition active:scale-95 cursor-pointer"
+                                className="px-3.5 py-2 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs shadow-md shadow-[#5B214F]/25 flex items-center gap-1 active:scale-95 transition cursor-pointer"
                               >
-                                <Plus className="w-3 h-3 text-[#D6B36A] stroke-[3]" />
+                                <span className="text-sm font-black text-[#D6B36A] leading-none">+</span>
                                 <span>ADD</span>
                               </button>
                             )}
@@ -901,7 +898,7 @@ function BookingWizardContent() {
 
               {/* 3. BULK WASH BY WEIGHT (PER-KG) */}
               {selectedServiceId === 'PER_KG' && (
-                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-5 sm:p-7 space-y-5 shadow-2xs">
+                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-5 sm:p-7 space-y-5 shadow-2xs w-full">
                   <div className="space-y-1">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F0F2] text-[#5B214F] text-[10px] font-extrabold uppercase tracking-widest border border-[#E8DDE1]">
                       <Scale className="w-3 h-3 text-[#D6B36A]" />
