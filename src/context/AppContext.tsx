@@ -285,7 +285,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile>(defaultUser);
   const [userRole, setUserRoleState] = useState<Role>('CUSTOMER');
-  const [savedAddresses, setSavedAddresses] = useState<Address[]>(getInitialAddresses);
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [userPincode, setUserPincode] = useState<string>('500072');
   const [currentZone, setCurrentZone] = useState<PincodeZone | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -310,11 +310,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loyaltyAccount, setLoyaltyAccount] = useState<LoyaltyPointsAccount>(db.getLoyaltyAccount());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authRedirectUrl, setAuthRedirectUrl] = useState<string | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const isLoggedIn = Boolean(
-    currentUser.id !== 'anonymous-customer' &&
-    typeof window !== 'undefined' &&
-    localStorage.getItem('lf_access')
+    currentUser.id && currentUser.id !== 'anonymous-customer'
   );
 
   const openAuthModal = (redirect?: string) => {
@@ -349,14 +348,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deliverySlot: string;
     selectedAddress: Address | null;
     notes: string;
-  }>(getInitialCart);
+  }>(defaultCart);
 
-  // Sync cart changes to localStorage for continuous guest persistence
+  // Sync cart changes to localStorage only AFTER hydration to avoid wiping existing carts
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (hasHydrated && typeof window !== 'undefined') {
       localStorage.setItem('lf_cart', JSON.stringify(cart));
     }
-  }, [cart]);
+  }, [cart, hasHydrated]);
 
   // Seamless Cart Merge when customer logs in
   const mergeCartOnLogin = (serverItems: OrderItem[] = []) => {
@@ -396,10 +395,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // Client hydration on mount
   useEffect(() => {
+    const user = getInitialCustomer();
+    setCurrentUser(user);
+
+    const addrs = getInitialAddresses();
+    if (addrs.length > 0) {
+      setSavedAddresses(addrs);
+    }
+
+    const savedCart = getInitialCart();
+    if (savedCart && savedCart.items && savedCart.items.length > 0) {
+      setCart(savedCart);
+    }
+
+    setHasHydrated(true);
+
     const syncAuth = () => {
-      const user = getInitialCustomer();
-      setCurrentUser(user);
+      const u = getInitialCustomer();
+      setCurrentUser(u);
       mergeCartOnLogin();
     };
     window.addEventListener('lf-auth-changed', syncAuth);
@@ -525,15 +540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Login is completed on a separate route. Sync the returned customer profile
-  // into the provider immediately so the dashboard and order list refresh
-  // without a hard reload.
-  useEffect(() => {
-    const syncCustomer = () => setCurrentUser(getInitialCustomer());
-    syncCustomer();
-    window.addEventListener('lf-auth-changed', syncCustomer);
-    return () => window.removeEventListener('lf-auth-changed', syncCustomer);
-  }, []);
+
 
   useEffect(() => {
     if (currentUser.id && currentUser.id !== 'anonymous-customer') {

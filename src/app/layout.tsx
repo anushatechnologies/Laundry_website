@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Manrope, Inter } from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/context/AppContext';
-import { MuiProvider } from '@/components/providers/MuiProvider';
 import Script from 'next/script';
 
 const manrope = Manrope({
@@ -38,9 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${manrope.variable} ${inter.variable} scroll-smooth`}>
       <body className="min-h-screen flex flex-col bg-[#FCF9F7] text-[#241A21] antialiased">
-        <MuiProvider>
-          <AppProvider>{children}</AppProvider>
-        </MuiProvider>
+        <AppProvider>{children}</AppProvider>
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       </body>
     </html>

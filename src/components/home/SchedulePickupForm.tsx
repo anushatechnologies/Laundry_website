@@ -20,15 +20,24 @@ export const SchedulePickupForm: React.FC = () => {
   const router = useRouter();
   const { userPincode, currentZone } = useApp();
 
-  const [locationInput, setLocationInput] = useState(
-    currentZone ? `${currentZone.pincode}, ${currentZone.areaName}` : `${userPincode || '500072'}, Hyderabad`
-  );
+  const [locationInput, setLocationInput] = useState('500072, Hyderabad');
   const [selectedService, setSelectedService] = useState('wash-fold');
-  const [pickupDate, setPickupDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [pickupDate, setPickupDate] = useState('');
   const [pickupTime, setPickupTime] = useState('08:00 AM - 10:00 AM');
+
+  React.useEffect(() => {
+    if (currentZone) {
+      setLocationInput(`${currentZone.pincode}, ${currentZone.areaName}`);
+    } else if (userPincode) {
+      setLocationInput(`${userPincode}, Hyderabad`);
+    }
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setPickupDate(`${yyyy}-${mm}-${dd}`);
+  }, [currentZone, userPincode]);
 
   const handleScheduleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

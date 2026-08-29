@@ -343,7 +343,7 @@ export const Navbar: React.FC = () => {
               aria-label="View Cart"
             >
               <ShoppingBag className="w-5 h-5" />
-              {cart.items && cart.items.length > 0 && (
+              {mounted && cart.items && cart.items.length > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#5B214F] text-white text-[10px] font-black flex items-center justify-center shadow-md">
                   {cart.items.reduce((s: number, i: any) => s + (i.quantity || 1), 0)}
                 </span>

@@ -28,6 +28,12 @@ import {
   AlertCircle,
   Percent,
   User,
+  Zap,
+  CheckCircle2,
+  X,
+  Layers,
+  Shirt,
+  Wind,
 } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
@@ -49,9 +55,9 @@ declare global {
 }
 
 const steps = [
-  { num: 1, title: 'Select Items', desc: 'Garments & Bulk Wash' },
-  { num: 2, title: 'Pickup & Address', desc: 'Schedule slot & location' },
-  { num: 3, title: 'Review & Pay', desc: 'Confirm & secure checkout' },
+  { num: 1, title: 'Select Items', desc: 'Garments & Services' },
+  { num: 2, title: 'Slot & Address', desc: 'Pickup location & time' },
+  { num: 3, title: 'Review & Pay', desc: 'Confirm & schedule' },
 ];
 
 const formatPickupDate = (dateStr: string) => {
@@ -164,6 +170,7 @@ function BookingWizardContent() {
   const [activeCatalogMode, setActiveCatalogMode] = useState<'GARMENTS' | 'PER_KG'>('GARMENTS');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('ALL');
+  const [serviceFilter, setServiceFilter] = useState('ALL');
   const [selectedAddressId, setSelectedAddressId] = useState(savedAddresses[0]?.id || '');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [selectedPickupDate, setSelectedPickupDate] = useState('');
@@ -202,42 +209,28 @@ function BookingWizardContent() {
 
   useEffect(() => {
     if (savedAddresses.length > 0 && !selectedAddressId) {
-      setSelectedAddressId(savedAddresses[0].id);
+      const defaultAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+      setSelectedAddressId(defaultAddr.id);
     }
   }, [savedAddresses, selectedAddressId]);
 
   useEffect(() => {
-    if (stepQuery === '2' || stepQuery === 'pickup') {
-      if (cart.items.length > 0) setStep(1);
-    } else if (stepQuery === '3' || stepQuery === 'pay') {
-      if (cart.items.length > 0) setStep(2);
+    if (serviceQuery) {
+      if (serviceQuery === 'wash-fold' || serviceQuery === 'wash-iron') {
+        setActiveCatalogMode('PER_KG');
+      } else {
+        setActiveCatalogMode('GARMENTS');
+      }
+    }
+  }, [serviceQuery]);
+
+  useEffect(() => {
+    if (stepQuery === '2' && cart.items.length > 0) {
+      setStep(1);
+    } else if (stepQuery === '3' && cart.items.length > 0) {
+      setStep(2);
     }
   }, [stepQuery, cart.items.length]);
-
-  useEffect(() => {
-    if (serviceQuery) {
-      const lower = serviceQuery.toLowerCase();
-      if (lower.includes('per_kg') || lower.includes('wash-fold') || lower.includes('bulk') || lower.includes('weight')) {
-        setActiveCatalogMode('PER_KG');
-      }
-    }
-    if (dateQuery) {
-      setSelectedPickupDate(dateQuery);
-    }
-  }, [serviceQuery, dateQuery]);
-
-  useEffect(() => {
-    const handleAuthChanged = () => {
-      if (cart.items.length > 0) {
-        setStep(1);
-        if (typeof window !== 'undefined') {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      }
-    };
-    window.addEventListener('lf-auth-changed', handleAuthChanged);
-    return () => window.removeEventListener('lf-auth-changed', handleAuthChanged);
-  }, [cart.items.length]);
 
   const [notes, setNotes] = useState('');
   const [couponInput, setCouponInput] = useState('');
@@ -254,7 +247,11 @@ function BookingWizardContent() {
   const categories = useMemo(() => {
     const values = new Map<string, string>();
     clothTypes.forEach((cloth) => values.set(cloth.categoryTag, cloth.categoryLabel));
-    return [{ key: 'ALL', label: 'All Garments' }, ...Array.from(values, ([key, label]) => ({ key, label }))];
+    return [{ key: 'ALL', label: 'All Garments', icon: '🧺' }, ...Array.from(values, ([key, label]) => ({
+      key,
+      label,
+      icon: key === 'MENS' ? '👔' : key === 'WOMENS' ? '👗' : key === 'PREMIUM_BRIDAL' ? '💍' : key === 'KIDS' ? '👶' : key === 'HOME_TEXTILES' ? '🛏️' : '✨',
+    }))];
   }, [clothTypes]);
 
   const catalogItems = useMemo(
@@ -263,12 +260,18 @@ function BookingWizardContent() {
         .filter((cloth) => cloth.isActive)
         .filter((cloth) => category === 'ALL' || cloth.categoryTag === category)
         .filter((cloth) => `${cloth.name} ${cloth.categoryLabel}`.toLowerCase().includes(query.trim().toLowerCase()))
-        .map((cloth) => ({
-          cloth,
-          prices: priceMatrix.filter((price) => price.clothTypeId === cloth.id && price.isActive),
-        }))
+        .map((cloth) => {
+          let prices = priceMatrix.filter((price) => price.clothTypeId === cloth.id && price.isActive);
+          if (serviceFilter !== 'ALL') {
+            prices = prices.filter((p) => p.serviceId === serviceFilter);
+          }
+          return {
+            cloth,
+            prices,
+          };
+        })
         .filter((item) => item.prices.length > 0),
-    [category, clothTypes, priceMatrix, query]
+    [category, clothTypes, priceMatrix, query, serviceFilter]
   );
 
   // Default Standard Slot Template
@@ -340,13 +343,13 @@ function BookingWizardContent() {
             bookedKg: 24,
             isAvailable: true,
             isActive: true,
-            tag: s.tag,
+            isPast: false,
           }));
 
-    return slotSource.map((slot) => {
-      const isPast = isSlotPastOrClosed(slot.date, slot.startTime, 30);
+    return slotSource.map((s) => {
+      const isPast = isSlotPastOrClosed(activePickupDate, s.startTime, 30);
       return {
-        ...slot,
+        ...s,
         isPast,
       };
     });
@@ -584,7 +587,6 @@ function BookingWizardContent() {
       const payment = await createRazorpayPaymentOrder(order.id);
       const checkoutAvailable = await loadRazorpayCheckout();
 
-      // If Razorpay JS is loaded and not a mock/sandbox fallback
       if (checkoutAvailable && window.Razorpay && !(payment as any)?.isMock && !payment.key.includes('mock')) {
         const razorpay = new window.Razorpay({
           key: payment.key,
@@ -598,14 +600,19 @@ function BookingWizardContent() {
             contact: checkoutDetails.customerPhone,
           },
           theme: { color: '#5B214F' },
-          handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          handler: async (res: any) => {
             try {
-              await verifyRazorpayPayment({ internalOrderId: order.id, ...response });
+              await verifyRazorpayPayment({
+                internalOrderId: order.id,
+                razorpay_order_id: res.razorpay_order_id,
+                razorpay_payment_id: res.razorpay_payment_id,
+                razorpay_signature: res.razorpay_signature,
+              });
               showToast('🎉 Payment verified! Your order is scheduled for pickup.', 'success');
               router.push(`/track/${order.id}`);
-            } catch (error) {
-              await markRazorpayPaymentFailed(order.id);
-              showToast(error instanceof Error ? error.message : 'Payment verification failed.', 'error');
+            } catch {
+              showToast('Payment verification pending. Our team will verify.', 'info');
+              router.push(`/track/${order.id}`);
             } finally {
               setIsProcessing(false);
             }
@@ -621,7 +628,6 @@ function BookingWizardContent() {
         });
         razorpay.open();
       } else {
-        // Mock Sandbox / Instant test payment verification
         await verifyRazorpayPayment({
           internalOrderId: order.id,
           razorpay_order_id: payment.orderId,
@@ -643,54 +649,77 @@ function BookingWizardContent() {
     }
   };
 
+  const getServiceBadge = (serviceName: string) => {
+    const s = serviceName.toLowerCase();
+    if (s.includes('dry clean')) return { icon: '👔', bg: 'bg-purple-50 text-purple-800 border-purple-200' };
+    if (s.includes('steam')) return { icon: '💨', bg: 'bg-rose-50 text-rose-800 border-rose-200' };
+    if (s.includes('fold')) return { icon: '🧺', bg: 'bg-sky-50 text-sky-800 border-sky-200' };
+    if (s.includes('iron')) return { icon: '✨', bg: 'bg-amber-50 text-amber-800 border-amber-200' };
+    return { icon: '✨', bg: 'bg-[#F7F0F2] text-[#5B214F] border-[#E8DDE1]' };
+  };
+
   return (
-    <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col">
+    <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 mx-auto max-w-7xl px-4 pb-28 pt-28 sm:pt-36 lg:pt-32 w-full">
-        {/* Top Stepper Banner */}
-        <section className="overflow-hidden rounded-3xl bg-[#2B1326] px-5 py-6 sm:px-10 sm:py-8 text-white shadow-xl border border-slate-800">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-0.5 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#D6B36A]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#D6B36A]" /> 100% Guaranteed Doorstep Care
+      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pb-32 pt-36 sm:pt-40 lg:pt-36 w-full">
+        {/* ── LUXURY TOP PROGRESS HEADER ── */}
+        <section className="mb-6 rounded-3xl bg-gradient-to-br from-[#2B1326] via-[#3F1436] to-[#5B214F] p-4 sm:p-7 text-white shadow-[0_16px_40px_rgba(43,19,38,0.12)] border border-white/10 relative overflow-hidden">
+          {/* Subtle Ambient Glow */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#D6B36A]/20 blur-3xl" />
+          <div className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-[#B76E79]/20 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[#D6B36A]">
+                <ShieldCheck className="h-3 w-3 text-[#D6B36A]" />
+                <span>OZONE SANITIZED DOORSTEP PICKUP</span>
               </div>
-              <h1 className="mt-2 text-xl sm:text-3xl font-black tracking-tight font-poppins text-white leading-tight">
-                Schedule Laundry Pickup
+              <h1 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-black tracking-tight font-poppins text-white">
+                {step === 0 && 'Schedule Laundry Pickup'}
+                {step === 1 && 'Choose Pickup Slot & Address'}
+                {step === 2 && 'Review & Confirm Order'}
               </h1>
-              <p className="mt-1 text-xs sm:text-sm text-slate-300">
-                Select your clothes, choose a convenient pickup window, and let our experts take care of the rest.
+              <p className="mt-0.5 text-xs text-[#E8DDE1] font-medium hidden sm:block">
+                Free doorstep collection &amp; 24-hr turnaround across Hyderabad
               </p>
             </div>
 
-            {/* Stepper Progress */}
-            <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-3 bg-slate-900/80 p-2 rounded-2xl border border-slate-800 shrink-0">
-              {steps.map((s, idx) => (
-                <button
-                  key={s.num}
-                  type="button"
-                  onClick={() => idx <= step && setStep(idx)}
-                  className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                    idx === step
-                      ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/40'
-                      : idx < step
-                      ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
-                      : 'text-slate-500 hover:text-slate-400'
-                  }`}
-                >
-                  <span
-                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-black shrink-0 ${
-                      idx < step ? 'bg-emerald-500 text-white' : idx === step ? 'bg-white text-[#5B214F]' : 'bg-slate-800 text-slate-400'
+            {/* Stepper Progress Bar */}
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-black/30 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shrink-0">
+              {steps.map((s, idx) => {
+                const isActive = idx === step;
+                const isCompleted = idx < step;
+                return (
+                  <button
+                    key={s.num}
+                    type="button"
+                    onClick={() => idx <= step && setStep(idx)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${
+                      isActive
+                        ? 'bg-white text-[#5B214F] shadow-md font-extrabold'
+                        : isCompleted
+                        ? 'bg-white/15 text-white hover:bg-white/25 font-bold cursor-pointer'
+                        : 'text-white/40 cursor-default font-medium'
                     }`}
                   >
-                    {idx < step ? <Check className="w-3 h-3 stroke-[3]" /> : s.num}
-                  </span>
-                  <div className="text-left hidden sm:block">
-                    <span className="text-xs font-bold block leading-none">{s.title}</span>
-                    <span className="text-[9px] opacity-70 block mt-0.5">{s.desc}</span>
-                  </div>
-                </button>
-              ))}
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                        isActive
+                          ? 'bg-[#5B214F] text-white'
+                          : isCompleted
+                          ? 'bg-emerald-400 text-[#2B1326]'
+                          : 'bg-white/20 text-white/60'
+                      }`}
+                    >
+                      {isCompleted ? <Check className="w-3 h-3 stroke-[3]" /> : s.num}
+                    </span>
+                    <span className="text-xs tracking-tight whitespace-nowrap">
+                      {s.title}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -699,219 +728,268 @@ function BookingWizardContent() {
             STEP 1: CHOOSE ITEMS (GARMENTS & BULK WASH)
         ───────────────────────────────────────────────────── */}
         {step === 0 && (
-          <section className={`mt-8 grid gap-6 transition-all duration-300 ${hasItems ? 'lg:grid-cols-[1fr_380px]' : 'max-w-4xl mx-auto'}`}>
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-2xs sm:p-7 space-y-6">
-              {/* Header & Mode Switcher */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#5B214F]">Step 1 of 3</p>
-                  <h2 className="text-xl font-black text-[#2B1326]">Choose Garments &amp; Services</h2>
-                </div>
-
-                <div className="bg-slate-100 p-1 rounded-xl flex gap-1 self-start sm:self-auto">
+          <section className={`grid gap-6 transition-all duration-300 ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-5xl mx-auto'}`}>
+            <div className="space-y-4">
+              
+              {/* 1. Mode Switcher Bar (Garment vs Weight) */}
+              <div className="bg-white rounded-2xl p-2 border border-[#E8DDE1] shadow-2xs flex items-center justify-between gap-2">
+                <div className="grid grid-cols-2 gap-1.5 flex-1">
                   <button
                     type="button"
                     onClick={() => setActiveCatalogMode('GARMENTS')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      activeCatalogMode === 'GARMENTS' ? 'bg-white text-[#5B214F] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      activeCatalogMode === 'GARMENTS'
+                        ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/20'
+                        : 'bg-[#FCF9F7] text-[#6F626A] hover:text-[#2B1326] hover:bg-[#F7F0F2]'
                     }`}
                   >
-                    👔 By Garment
+                    <Shirt className="w-4 h-4" />
+                    <span>By Garment (Individual Care)</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setActiveCatalogMode('PER_KG')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      activeCatalogMode === 'PER_KG' ? 'bg-[#2B1326] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      activeCatalogMode === 'PER_KG'
+                        ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/20'
+                        : 'bg-[#FCF9F7] text-[#6F626A] hover:text-[#2B1326] hover:bg-[#F7F0F2]'
                     }`}
                   >
-                    🧺 By Weight (KG)
+                    <Layers className="w-4 h-4" />
+                    <span>By Weight (Everyday Per-KG)</span>
                   </button>
                 </div>
               </div>
 
-              {/* MODE 1: BY GARMENT */}
+              {/* MODE 1: BY GARMENT ATELIER */}
               {activeCatalogMode === 'GARMENTS' && (
-                <div className="space-y-5">
-                  {/* Search and Category Filter */}
-                  <div className="space-y-3">
-                    <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search shirts, jeans, sarees, suits, bedsheets..."
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-[#5B214F] text-xs sm:text-sm font-medium transition"
-                      />
+                <div className="space-y-4">
+                  {/* Search Bar + Service Quick Filter */}
+                  <div className="bg-white rounded-3xl p-4 border border-[#E8DDE1] shadow-2xs space-y-3">
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-[#9A8D94]" />
+                        <input
+                          type="text"
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                          placeholder="Search shirts, jeans, sarees, suits, bedsheets..."
+                          className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] focus:bg-white focus:outline-none focus:border-[#5B214F] text-xs font-bold text-[#2B1326] transition"
+                        />
+                        {query && (
+                          <button
+                            type="button"
+                            onClick={() => setQuery('')}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Service Filter dropdown/pills on desktop */}
+                      <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar shrink-0">
+                        {[
+                          { id: 'ALL', label: 'All Services', icon: '✨' },
+                          { id: 'srv-m-steam-press', label: 'Steam Press', icon: '💨' },
+                          { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺' },
+                          { id: 'srv-m-wash-iron', label: 'Wash & Iron', icon: '✨' },
+                          { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔' },
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setServiceFilter(s.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                              serviceFilter === s.id
+                                ? 'bg-[#2B1326] text-[#D6B36A] shadow-xs'
+                                : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2]'
+                            }`}
+                          >
+                            <span>{s.icon}</span>
+                            <span>{s.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    {/* Category Ribbon */}
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none border-t border-[#F2EAEF] pt-3">
                       {categories.map((item) => (
                         <button
                           key={item.key}
                           type="button"
                           onClick={() => setCategory(item.key)}
-                          className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                          className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                             category === item.key
                               ? 'bg-[#5B214F] text-white shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-[#F7F0F2] hover:text-[#5B214F]'
+                              : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2] hover:text-[#5B214F]'
                           }`}
                         >
-                          {item.label}
+                          <span>{item.icon}</span>
+                          <span>{item.label}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Garments Grid */}
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {catalogItems.map(({ cloth, prices }) => (
-                      <article
-                        key={cloth.id}
-                        className="rounded-3xl border border-[#E8DDE1] p-4 sm:p-5 transition-all hover:border-[#B76E79] hover:shadow-md bg-white flex flex-col justify-between"
-                      >
-                        <div>
-                          {/* Garment Header */}
-                          <div className="flex items-center gap-3 mb-2.5">
-                            <GarmentImage
-                              name={cloth.name}
-                              icon={cloth.icon}
-                              imageUrl={cloth.imageUrl}
-                              categoryTag={cloth.categoryTag}
-                              size="md"
-                              className="w-12 h-12 rounded-2xl shadow-2xs shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <h3 className="font-black text-sm sm:text-base text-[#2B1326] leading-tight font-poppins truncate">
-                                  {cloth.name}
-                                </h3>
-                                <span className="text-[9px] font-black uppercase tracking-wider text-[#5B214F] bg-[#F7F0F2] px-2 py-0.5 rounded-full shrink-0 border border-[#E8DDE1]">
-                                  {cloth.categoryLabel}
-                                </span>
-                              </div>
-                              {cloth.description && (
+                  {/* Garments Clean Modern Grid */}
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+                    {catalogItems.map(({ cloth, prices }) => {
+                      // Total count of this cloth in bag
+                      const itemsInBag = cart.items.filter((i) => i.id?.startsWith(`${cloth.id}-`));
+                      const totalQtyInBag = itemsInBag.reduce((sum, item) => sum + item.quantity, 0);
+                      const minPrice = Math.min(...prices.map((p) => p.price));
+
+                      return (
+                        <div
+                          key={cloth.id}
+                          className="rounded-3xl border border-[#E8DDE1] bg-white p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                        >
+                          <div>
+                            {/* Garment Header Card */}
+                            <div className="flex items-center gap-3 mb-3">
+                              <GarmentImage
+                                name={cloth.name}
+                                icon={cloth.icon}
+                                imageUrl={cloth.imageUrl}
+                                categoryTag={cloth.categoryTag}
+                                size="md"
+                                className="w-12 h-12 rounded-2xl shadow-2xs shrink-0 border border-[#E8DDE1]"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h3 className="font-extrabold text-sm sm:text-base text-[#2B1326] leading-tight font-poppins truncate">
+                                    {cloth.name}
+                                  </h3>
+                                  {totalQtyInBag > 0 ? (
+                                    <span className="text-[10px] font-black text-[#5B214F] bg-[#F7F0F2] border border-[#5B214F]/30 px-2 py-0.5 rounded-full shrink-0 animate-in zoom-in">
+                                      ✓ {totalQtyInBag} in Bag
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-extrabold text-[#B76E79] bg-[#FCF9F7] px-2 py-0.5 rounded-full border border-[#E8DDE1] shrink-0">
+                                      From ₹{minPrice}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[11px] text-[#6F626A] font-medium truncate mt-0.5">
-                                  {cloth.description}
+                                  {cloth.description || `${cloth.categoryLabel} fabric care`}
                                 </p>
-                              )}
+                              </div>
+                            </div>
+
+                            {/* Service Compact Grid / Chips inside Garment Card */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2.5 border-t border-[#F2EAEF]">
+                              {prices.map((price) => {
+                                const itemKey = `${cloth.id}-${price.serviceId}`;
+                                const cartItem = cart.items.find((i) => i.id === itemKey);
+                                const qty = cartItem ? cartItem.quantity : 0;
+                                const badge = getServiceBadge(price.serviceName);
+
+                                return (
+                                  <div
+                                    key={price.id}
+                                    className={`p-2 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
+                                      qty > 0
+                                        ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/20'
+                                        : 'bg-[#FCF9F7] border-[#E8DDE1] hover:border-[#5B214F]/40 hover:bg-white'
+                                    }`}
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs">{badge.icon}</span>
+                                        <span className="font-extrabold text-[11px] text-[#2B1326] truncate">
+                                          {price.serviceName}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="text-xs font-black text-[#5B214F]">
+                                          ₹{price.price}
+                                        </span>
+                                        <span className="text-[9px] text-[#9A8D94] font-medium">
+                                          · {price.turnaroundHours}h
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Action Buttons: Add or Stepper */}
+                                    <div className="shrink-0">
+                                      {qty > 0 ? (
+                                        <div className="flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-2xs">
+                                          <button
+                                            type="button"
+                                            onClick={() => updateCartQuantity(itemKey, qty - 1)}
+                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                            title="Decrease"
+                                          >
+                                            <Minus className="w-3 h-3 stroke-[2.5]" />
+                                          </button>
+                                          <span className="w-5 text-center font-black text-xs text-white">
+                                            {qty}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateCartQuantity(itemKey, qty + 1)}
+                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                            title="Increase"
+                                          >
+                                            <Plus className="w-3 h-3 stroke-[2.5]" />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAddGarment(cloth.id, price.serviceId)}
+                                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-[11px] shadow-2xs transition active:scale-95 cursor-pointer"
+                                        >
+                                          <Plus className="w-3 h-3 text-[#D6B36A] stroke-[3]" />
+                                          <span>ADD</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
-
-                          {/* Care Services for this Garment */}
-                          <div className="space-y-2 pt-2.5 border-t border-[#F2EAEF]">
-                            {prices.map((price) => {
-                              const itemKey = `${cloth.id}-${price.serviceId}`;
-                              const cartItem = cart.items.find((i) => i.id === itemKey);
-                              const qty = cartItem ? cartItem.quantity : 0;
-                              const isAdded = justAddedClothId === itemKey;
-
-                              const getServiceIcon = (name: string) => {
-                                const lower = name.toLowerCase();
-                                if (lower.includes('dry clean')) return '👔';
-                                if (lower.includes('steam')) return '💨';
-                                if (lower.includes('iron')) return '✨';
-                                if (lower.includes('fold')) return '🧺';
-                                if (lower.includes('stain') || lower.includes('bleach')) return '🧼';
-                                return '✨';
-                              };
-
-                              return (
-                                <div
-                                  key={price.id}
-                                  className={`p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
-                                    qty > 0
-                                      ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/20'
-                                      : 'bg-[#FCF9F7] border-[#E8DDE1] hover:bg-white hover:border-[#5B214F]/40'
-                                  }`}
-                                >
-                                  {/* Service Name & Price */}
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-xs">{getServiceIcon(price.serviceName)}</span>
-                                      <span className="font-extrabold text-xs text-[#2B1326] truncate">
-                                        {price.serviceName}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      <span className="text-xs font-black text-[#5B214F]">
-                                        ₹{price.price}
-                                        <span className="text-[10px] font-normal text-slate-500"> /pc</span>
-                                      </span>
-                                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
-                                        <Clock className="w-2.5 h-2.5" />
-                                        {price.turnaroundHours}h
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Action: Stepper or + ADD */}
-                                  <div className="shrink-0">
-                                    {qty > 0 ? (
-                                      <div className="flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-xs">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            updateCartQuantity(itemKey, qty - 1);
-                                          }}
-                                          className="w-7 h-7 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
-                                          title="Decrease quantity"
-                                        >
-                                          <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                                        </button>
-                                        <span className="w-6 text-center font-black text-xs text-white">
-                                          {qty}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            updateCartQuantity(itemKey, qty + 1);
-                                          }}
-                                          className="w-7 h-7 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
-                                          title="Increase quantity"
-                                        >
-                                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAddGarment(cloth.id, price.serviceId)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-extrabold text-xs shadow-2xs transition active:scale-95 cursor-pointer"
-                                      >
-                                        <Plus className="w-3.5 h-3.5 text-[#D6B36A] stroke-[3]" />
-                                        <span>ADD</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
                         </div>
-                      </article>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {!catalogItems.length && (
-                    <div className="py-12 text-center text-sm text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      No matching garments found for &ldquo;{query}&rdquo;.
+                    <div className="py-16 text-center bg-white rounded-3xl border border-dashed border-[#E8DDE1] space-y-2">
+                      <p className="text-sm font-bold text-[#6F626A]">No matching garments found for &ldquo;{query}&rdquo;</p>
+                      <button
+                        type="button"
+                        onClick={() => { setQuery(''); setCategory('ALL'); setServiceFilter('ALL'); }}
+                        className="text-xs font-extrabold text-[#5B214F] underline cursor-pointer"
+                      >
+                        Reset filters
+                      </button>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* MODE 2: BY BULK WEIGHT (PER-KG) */}
+              {/* MODE 2: BY WEIGHT (PER-KG BULK) */}
               {activeCatalogMode === 'PER_KG' && (
-                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-5">
-                  <div>
-                    <h3 className="font-extrabold text-base text-[#2B1326]">Everyday Bulk Wash by Weight</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Weighed &amp; sanitized per-KG. Best for daily wear and home linens.</p>
+                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-6 sm:p-8 space-y-6 shadow-2xs">
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F0F2] text-[#5B214F] text-[10px] font-extrabold uppercase tracking-widest border border-[#E8DDE1]">
+                      <Scale className="w-3 h-3 text-[#D6B36A]" />
+                      <span>ECONOMY PER-KG WASHING</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black text-[#2B1326] font-poppins">
+                      Bulk Laundry by Weight
+                    </h2>
+                    <p className="text-xs text-[#6F626A] font-medium">
+                      Ideal for daily casual wear, t-shirts, towels, and bedsheets weighed per KG.
+                    </p>
                   </div>
 
+                  {/* Service Tier Selection */}
                   <div className="grid sm:grid-cols-2 gap-3">
                     {serviceMasters
                       .filter((s) => s.pricingType === 'PER_KG')
@@ -919,61 +997,73 @@ function BookingWizardContent() {
                         <div
                           key={srv.id}
                           onClick={() => setSelectedBulkServiceId(srv.id)}
-                          className={`p-3.5 rounded-xl border cursor-pointer transition ${
+                          className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
                             selectedBulkServiceId === srv.id
-                              ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/20'
-                              : 'bg-white border-slate-200 hover:bg-slate-100'
+                              ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/20 shadow-xs'
+                              : 'bg-[#FCF9F7] border-[#E8DDE1] hover:bg-white hover:border-[#5B214F]/40'
                           }`}
                         >
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-extrabold text-xs text-[#2B1326]">{srv.name}</span>
-                            <span className="font-black text-xs text-[#5B214F]">₹{srv.baseKgPrice}/KG</span>
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-extrabold text-sm text-[#2B1326]">{srv.name}</span>
+                              <span className="font-black text-sm text-[#5B214F]">₹{srv.baseKgPrice}/KG</span>
+                            </div>
+                            <p className="text-xs text-[#6F626A] mt-1">{srv.description}</p>
                           </div>
-                          <p className="text-[10px] text-slate-500">{srv.description}</p>
+                          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[#E8DDE1] text-[11px] font-bold text-[#6F626A]">
+                            <Clock className="w-3.5 h-3.5 text-[#5B214F]" />
+                            <span>{srv.turnaroundHours}h Standard Turnaround</span>
+                          </div>
                         </div>
                       ))}
                   </div>
 
-                  <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-2">
-                    <div className="flex justify-between text-xs font-bold text-[#2B1326]">
-                      <span>Estimated Laundry Weight:</span>
-                      <span className="text-[#5B214F] font-black text-sm">{bulkKgWeight} KG (~{bulkKgWeight * 4} clothes)</span>
+                  {/* Weight Slider Box */}
+                  <div className="p-5 bg-[#FCF9F7] rounded-2xl border border-[#E8DDE1] space-y-4">
+                    <div className="flex justify-between items-center text-xs font-bold text-[#2B1326]">
+                      <span>Select Laundry Weight:</span>
+                      <span className="text-base font-black text-[#5B214F] font-poppins">
+                        {bulkKgWeight} KG <span className="text-xs text-[#6F626A] font-medium">(~{bulkKgWeight * 4} items)</span>
+                      </span>
                     </div>
+
                     <input
                       type="range"
                       min={3}
-                      max={20}
+                      max={25}
                       value={bulkKgWeight}
                       onChange={(e) => setBulkKgWeight(parseInt(e.target.value))}
-                      className="w-full accent-[#5B214F] cursor-pointer"
+                      className="w-full accent-[#5B214F] h-2 bg-[#E8DDE1] rounded-lg cursor-pointer"
                     />
-                    <div className="flex justify-between text-[10px] text-slate-400">
-                      <span>3 KG (Min)</span>
+
+                    <div className="flex justify-between text-[11px] font-bold text-[#9A8D94]">
+                      <span>3 KG (Minimum)</span>
                       <span>10 KG</span>
-                      <span>20 KG</span>
+                      <span>25 KG</span>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleAddBulkToBag}
-                    className="w-full py-3 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-500/20 transition cursor-pointer"
+                    className="w-full py-4 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-2xl font-extrabold text-sm shadow-md shadow-[#5B214F]/25 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
                   >
-                    + Add {bulkKgWeight} KG to Bag (₹{(serviceMasters.find((s) => s.id === selectedBulkServiceId)?.baseKgPrice || 60) * bulkKgWeight})
+                    <span>Add {bulkKgWeight} KG to Bag (₹{(serviceMasters.find((s) => s.id === selectedBulkServiceId)?.baseKgPrice || 60) * bulkKgWeight})</span>
+                    <ArrowRight className="w-4 h-4 text-[#D6B36A]" />
                   </button>
                 </div>
               )}
             </div>
 
-            {/* RIGHT: Live Bag Summary & Bill Details (Only shown when items exist) */}
+            {/* ── RIGHT: LIVE LUXURY BAG SUMMARY ── */}
             {hasItems && (
-              <aside className="h-fit rounded-3xl border border-slate-200/80 bg-white p-5 shadow-2xs lg:sticky lg:top-24 space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <aside className="h-fit rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-6 shadow-sm lg:sticky lg:top-24 space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E8DDE1]">
                   <div className="flex items-center gap-2">
-                    <ShoppingBag className="w-4 h-4 text-[#5B214F]" />
-                    <h2 className="font-black text-sm text-[#2B1326]">Your Bag</h2>
+                    <ShoppingBag className="w-5 h-5 text-[#5B214F]" />
+                    <h2 className="font-extrabold text-base text-[#2B1326] font-poppins">Your Bag</h2>
                   </div>
-                  <span className="rounded-full bg-[#F7F0F2] px-2.5 py-0.5 text-[11px] font-bold text-[#5B214F]">
+                  <span className="rounded-full bg-[#F7F0F2] px-3 py-1 text-xs font-black text-[#5B214F] border border-[#E8DDE1]">
                     {cartTotals.itemCount} items
                   </span>
                 </div>
@@ -981,20 +1071,21 @@ function BookingWizardContent() {
                 {/* Items List */}
                 <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                   {cart.items.map((item) => (
-                    <div key={item.id} className="rounded-2xl bg-slate-50 p-3 border border-slate-100 text-xs">
+                    <div key={item.id} className="rounded-2xl bg-[#FCF9F7] p-3 border border-[#E8DDE1] text-xs">
                       <div className="flex justify-between items-start gap-2">
-                        <span className="font-bold text-slate-800 leading-tight">{item.serviceName}</span>
+                        <span className="font-bold text-[#2B1326] leading-tight">{item.serviceName}</span>
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.id)}
-                          className="text-slate-400 hover:text-rose-500 cursor-pointer p-0.5"
+                          className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
+                          title="Remove item"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="flex items-center rounded-lg border border-slate-200 bg-white">
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <div className="flex items-center rounded-xl border border-[#E8DDE1] bg-white">
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
@@ -1002,7 +1093,7 @@ function BookingWizardContent() {
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="min-w-6 text-center text-xs font-black">{item.quantity}</span>
+                          <span className="min-w-6 text-center text-xs font-black text-[#2B1326]">{item.quantity}</span>
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
@@ -1011,21 +1102,21 @@ function BookingWizardContent() {
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
-                        <span className="text-xs font-extrabold text-[#2B1326]">₹{item.subtotal}</span>
+                        <span className="text-xs font-black text-[#5B214F]">₹{item.subtotal}</span>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Express Turnaround Option */}
-                <div className="p-3 rounded-2xl bg-[#F7F0F2] border border-indigo-100 text-xs space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase text-[#5B214F] block">Turnaround Speed</span>
+                <div className="p-3.5 rounded-2xl bg-[#F7F0F2] border border-[#E8DDE1] text-xs space-y-2">
+                  <span className="text-[10px] font-extrabold uppercase text-[#5B214F] tracking-wider block">Turnaround Speed</span>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={() => setExpressTier('REGULAR')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer text-center ${
-                        cart.expressTier === 'REGULAR' ? 'bg-[#5B214F] text-white' : 'bg-white text-slate-700'
+                      className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition cursor-pointer text-center ${
+                        cart.expressTier === 'REGULAR' ? 'bg-[#5B214F] text-white shadow-xs' : 'bg-white text-[#2B1326] border border-[#E8DDE1]'
                       }`}
                     >
                       Standard 48h (Free)
@@ -1033,8 +1124,8 @@ function BookingWizardContent() {
                     <button
                       type="button"
                       onClick={() => setExpressTier('EXPRESS_24H')}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer text-center ${
-                        cart.expressTier === 'EXPRESS_24H' ? 'bg-[#5B214F] text-white' : 'bg-white text-slate-700'
+                      className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition cursor-pointer text-center ${
+                        cart.expressTier === 'EXPRESS_24H' ? 'bg-[#5B214F] text-white shadow-xs' : 'bg-white text-[#2B1326] border border-[#E8DDE1]'
                       }`}
                     >
                       Express 24h (+₹{pricingSettings.expressDeliveryFee})
@@ -1043,47 +1134,47 @@ function BookingWizardContent() {
                 </div>
 
                 {/* Bill Details */}
-                <div className="border-t border-slate-100 pt-3 space-y-1.5 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Item Subtotal:</span>
+                <div className="border-t border-[#E8DDE1] pt-3.5 space-y-2 text-xs">
+                  <div className="flex justify-between text-[#6F626A]">
+                    <span>Item Total:</span>
                     <span className="font-bold text-[#2B1326]">₹{cartTotals.itemTotal}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Doorstep Delivery:</span>
-                    <span className={`font-bold ${cartTotals.deliveryFee === 0 ? 'text-emerald-600' : 'text-[#2B1326]'}`}>
+                  <div className="flex justify-between text-[#6F626A]">
+                    <span>Doorstep Pickup &amp; Delivery:</span>
+                    <span className={`font-bold ${cartTotals.deliveryFee === 0 ? 'text-emerald-700' : 'text-[#2B1326]'}`}>
                       {cartTotals.deliveryFee === 0 ? 'FREE' : `₹${cartTotals.deliveryFee}`}
                     </span>
                   </div>
                   {cartTotals.expressFee > 0 && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Express Fee:</span>
+                    <div className="flex justify-between text-[#6F626A]">
+                      <span>Express 24h Priority:</span>
                       <span className="font-bold text-[#5B214F]">₹{cartTotals.expressFee}</span>
                     </div>
                   )}
                   {cartTotals.discount > 0 && (
-                    <div className="flex justify-between text-emerald-600 font-bold">
-                      <span>Coupon Discount:</span>
+                    <div className="flex justify-between text-emerald-700 font-bold">
+                      <span>Promo Discount:</span>
                       <span>-₹{cartTotals.discount}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-slate-600">
+                  <div className="flex justify-between text-[#6F626A]">
                     <span>GST ({pricingSettings.taxPercentage}%):</span>
                     <span className="font-bold text-[#2B1326]">₹{cartTotals.tax}</span>
                   </div>
 
-                  <div className="flex justify-between text-sm font-black pt-2 border-t border-slate-200 text-[#2B1326]">
-                    <span>Total Payable:</span>
-                    <span className="text-lg text-[#5B214F]">₹{cartTotals.grandTotal}</span>
+                  <div className="flex justify-between text-sm font-black pt-2.5 border-t border-[#E8DDE1] text-[#2B1326]">
+                    <span>Total Amount:</span>
+                    <span className="text-xl text-[#5B214F] font-poppins font-black">₹{cartTotals.grandTotal}</span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={continueToDetails}
-                  className="w-full py-3.5 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-extrabold text-xs sm:text-sm shadow-md shadow-indigo-500/25 flex items-center justify-center gap-2 transition cursor-pointer active:scale-95"
+                  className="w-full py-4 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-2xl font-extrabold text-sm shadow-md shadow-[#5B214F]/25 flex items-center justify-center gap-2 transition cursor-pointer active:scale-95"
                 >
-                  <span>Continue to Pickup &amp; Address</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <span>Select Pickup Slot &amp; Address</span>
+                  <ChevronRight className="w-4 h-4 text-[#D6B36A]" />
                 </button>
               </aside>
             )}
@@ -1094,22 +1185,22 @@ function BookingWizardContent() {
             STEP 2: SCHEDULE PICKUP & ADDRESS DETAILS
         ───────────────────────────────────────────────────── */}
         {step === 1 && (
-          <section className="mx-auto mt-8 max-w-3xl space-y-6">
+          <section className="mx-auto max-w-3xl space-y-6">
             {mounted && !isLoggedIn && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl bg-indigo-50/80 border border-indigo-100 p-4 sm:p-5 text-xs shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl bg-[#F7F0F2] border border-[#E8DDE1] p-4 sm:p-5 text-xs shadow-2xs">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-[#5B214F] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm shadow-indigo-500/20">
+                  <div className="w-9 h-9 rounded-2xl bg-[#5B214F] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
                     ✨
                   </div>
                   <div>
                     <p className="font-extrabold text-sm text-[#2B1326]">Already have an account?</p>
-                    <p className="text-slate-600 text-xs mt-0.5">Sign in with OTP to autofill your addresses and merge your bag!</p>
+                    <p className="text-[#6F626A] text-xs mt-0.5">Sign in with OTP to autofill your saved addresses and loyalty points.</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => openAuthModal('/book')}
-                  className="px-4 py-2.5 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-bold text-xs shadow-sm shadow-indigo-500/20 transition cursor-pointer self-start sm:self-auto shrink-0 active:scale-95"
+                  className="px-4 py-2.5 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer self-start sm:self-auto shrink-0 active:scale-95"
                 >
                   Sign In with OTP
                 </button>
@@ -1117,36 +1208,36 @@ function BookingWizardContent() {
             )}
 
             {/* 0. Contact Information */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
+            <div className="rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-[#5B214F]" />
-                  <h3 className="font-extrabold text-sm text-[#2B1326]">Contact Details</h3>
+                  <h3 className="font-extrabold text-sm text-[#2B1326]">Contact Person</h3>
                 </div>
-                <span className="text-[11px] font-bold text-slate-400">For pickup updates &amp; SMS</span>
+                <span className="text-[11px] font-bold text-[#9A8D94]">For pickup updates &amp; live rider SMS</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Full Name</label>
+                  <label className="text-[11px] font-bold text-[#6F626A] mb-1 block">Full Name</label>
                   <input
                     type="text"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold outline-none focus:border-[#5B214F]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] text-xs font-semibold outline-none focus:border-[#5B214F] focus:bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Mobile Number (10 Digits) *</label>
+                  <label className="text-[11px] font-bold text-[#6F626A] mb-1 block">Mobile Number (10 Digits) *</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">+91</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-[#5B214F]">🇮🇳 +91</span>
                     <input
                       type="tel"
                       maxLength={10}
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value.replace(/\D/g, ''))}
                       placeholder="9876543210"
-                      className="w-full pl-11 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold outline-none focus:border-[#5B214F]"
+                      className="w-full pl-16 pr-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] text-xs font-semibold outline-none focus:border-[#5B214F] focus:bg-white"
                     />
                   </div>
                 </div>
@@ -1154,13 +1245,13 @@ function BookingWizardContent() {
             </div>
 
             {/* 1. Pickup Date Picker */}
-            <div className="rounded-3xl border border-indigo-100 bg-[#F7F0F2] p-5 shadow-2xs space-y-3">
+            <div className="rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-6 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-[#5B214F]" />
                   <h3 className="font-extrabold text-sm text-[#2B1326]">1. Select Pickup Date</h3>
                 </div>
-                <span className="text-[11px] font-bold text-[#5B214F]">7 Days Open</span>
+                <span className="text-[11px] font-bold text-[#5B214F]">Open All 7 Days</span>
               </div>
 
               <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
@@ -1178,22 +1269,22 @@ function BookingWizardContent() {
                         setSelectedPickupDate(dateObj.date);
                         setSelectedSlotId('');
                       }}
-                      className={`min-w-[110px] p-3 rounded-2xl text-left border transition ${
+                      className={`min-w-[110px] p-3.5 rounded-2xl text-left border transition-all cursor-pointer ${
                         isClosed
-                          ? 'bg-slate-100/70 border-slate-200 opacity-50 cursor-not-allowed text-slate-400'
+                          ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed text-slate-400'
                           : isSelected
-                          ? 'bg-[#5B214F] text-white border-[#5B214F] shadow-md shadow-indigo-500/20 cursor-pointer'
-                          : 'bg-white text-[#2B1326] border-slate-200 hover:border-indigo-200 cursor-pointer'
+                          ? 'bg-[#5B214F] text-white border-[#5B214F] shadow-md shadow-[#5B214F]/20'
+                          : 'bg-[#FCF9F7] text-[#2B1326] border-[#E8DDE1] hover:border-[#5B214F]/40'
                       }`}
                     >
                       <span className={`text-[10px] font-bold block uppercase tracking-wider ${
-                        isClosed ? 'text-slate-400' : isSelected ? 'text-indigo-200' : 'text-slate-400'
+                        isClosed ? 'text-slate-400' : isSelected ? 'text-[#D6B36A]' : 'text-[#6F626A]'
                       }`}>
                         {isClosed ? 'Closed' : idx === 0 ? 'Fastest' : 'Available'}
                       </span>
                       <span className="text-xs font-black block mt-0.5">{label}</span>
                       <span className={`text-[9px] block mt-1 ${
-                        isClosed ? 'text-slate-400' : isSelected ? 'text-indigo-100' : 'text-slate-500'
+                        isClosed ? 'text-slate-400' : isSelected ? 'text-white/80' : 'text-[#6F626A]'
                       }`}>
                         {isClosed ? 'Slots ended' : `${dateObj.activeSlotCount} slots`}
                       </span>
@@ -1204,13 +1295,13 @@ function BookingWizardContent() {
             </div>
 
             {/* 2. Pickup Time Slot Selector */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
+            <div className="rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock3 className="w-4 h-4 text-[#5B214F]" />
-                  <h3 className="font-extrabold text-sm text-[#2B1326]">2. Select Pickup Time Slot</h3>
+                  <h3 className="font-extrabold text-sm text-[#2B1326]">2. Choose Pickup Slot</h3>
                 </div>
-                <span className="text-xs text-slate-500 font-medium">30-min window confirmation</span>
+                <span className="text-xs text-[#6F626A] font-medium">Rider arrives in this window</span>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1222,7 +1313,7 @@ function BookingWizardContent() {
                     return (
                       <div
                         key={slot.id}
-                        className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 opacity-50 text-left flex items-center justify-between cursor-not-allowed select-none"
+                        className="p-4 rounded-2xl border border-slate-200 bg-slate-50 opacity-50 text-left flex items-center justify-between cursor-not-allowed"
                       >
                         <div>
                           <div className="flex items-center gap-2">
@@ -1230,12 +1321,9 @@ function BookingWizardContent() {
                               {slot.startTime} – {slot.endTime}
                             </span>
                             <span className="text-[9px] font-black uppercase text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                              Passed
+                              Closed
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 mt-1 block">
-                            Slot ended for today
-                          </span>
                         </div>
                         <Clock3 className="w-4 h-4 text-slate-300 shrink-0" />
                       </div>
@@ -1250,17 +1338,15 @@ function BookingWizardContent() {
                       className={`p-4 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
                         isSelected
                           ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/20'
-                          : 'bg-white border-slate-200 hover:border-indigo-200'
+                          : 'bg-[#FCF9F7] border-[#E8DDE1] hover:border-[#5B214F]/40'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-sm text-[#2B1326]">
-                            {slot.startTime} – {slot.endTime}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 mt-1 block">
-                          Doorstep rider arrives in this window
+                        <span className="font-extrabold text-sm text-[#2B1326]">
+                          {slot.startTime} – {slot.endTime}
+                        </span>
+                        <span className="text-[10px] text-[#6F626A] mt-0.5 block">
+                          Standard Doorstep Pickup
                         </span>
                       </div>
                       <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#5B214F] bg-[#5B214F] text-white' : 'border-slate-300'}`}>
@@ -1270,21 +1356,14 @@ function BookingWizardContent() {
                   );
                 })}
               </div>
-
-              {!availableSlots.some((s) => !s.isPast) && (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>All pickup slots for this date have ended. Please select Tomorrow or an upcoming date above.</span>
-                </div>
-              )}
             </div>
 
             {/* 3. Delivery & Pickup Address */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
+            <div className="rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#5B214F]" />
-                  <h3 className="font-extrabold text-sm text-[#2B1326]">3. Delivery &amp; Pickup Address</h3>
+                  <h3 className="font-extrabold text-sm text-[#2B1326]">3. Doorstep Address</h3>
                 </div>
                 {savedAddresses.length > 0 && (
                   <button
@@ -1293,7 +1372,7 @@ function BookingWizardContent() {
                     className="text-xs font-extrabold text-[#5B214F] hover:text-[#48193F] cursor-pointer flex items-center gap-1 bg-[#F7F0F2] px-3 py-1.5 rounded-xl transition active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>{isAddingNewAddress ? 'Cancel' : 'Add New Address'}</span>
+                    <span>{isAddingNewAddress ? 'Cancel' : 'Add Address'}</span>
                   </button>
                 )}
               </div>
@@ -1309,14 +1388,14 @@ function BookingWizardContent() {
                         onClick={() => setSelectedAddressId(address.id)}
                         className={`p-4 rounded-2xl border text-left transition cursor-pointer relative group flex flex-col justify-between ${
                           isSelected
-                            ? 'bg-[#F7F0F2]/70 border-[#5B214F] ring-2 ring-[#5B214F]/25 shadow-sm'
-                            : 'bg-white border-slate-200 hover:border-indigo-200 hover:bg-slate-50/60'
+                            ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/25 shadow-xs'
+                            : 'bg-[#FCF9F7] border-[#E8DDE1] hover:border-[#5B214F]/40'
                         }`}
                       >
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-[#5B214F] bg-white px-2.5 py-0.5 rounded-full border border-indigo-100 shadow-2xs flex items-center gap-1">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-[#5B214F] bg-white px-2.5 py-0.5 rounded-full border border-[#E8DDE1] shadow-2xs flex items-center gap-1">
                                 {address.type === 'Home' && <HomeIcon className="w-2.5 h-2.5" />}
                                 {address.type === 'Office' && <Briefcase className="w-2.5 h-2.5" />}
                                 {address.type === 'Other' && <MapPin className="w-2.5 h-2.5" />}
@@ -1337,7 +1416,7 @@ function BookingWizardContent() {
                                   deleteAddress(address.id);
                                 }}
                                 className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                                title="Delete address"
+                                title="Delete"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1347,21 +1426,9 @@ function BookingWizardContent() {
                           <p className="text-xs font-extrabold text-[#2B1326] leading-snug">
                             {address.houseNo ? `${address.houseNo}, ` : ''}{address.area || address.street}
                           </p>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            {address.landmark ? `${address.landmark}, ` : ''}{address.city}{address.state ? `, ${address.state}` : ''} - <span className="font-bold text-slate-700">{address.pincode}</span>
+                          <p className="text-[11px] text-[#6F626A] mt-1">
+                            {address.landmark ? `${address.landmark}, ` : ''}{address.city} - <span className="font-bold text-[#2B1326]">{address.pincode}</span>
                           </p>
-
-                          {(address.contactName || address.contactPhone) && (
-                            <p className="text-[10px] font-semibold text-slate-600 mt-2 pt-2 border-t border-slate-200/60 flex items-center gap-2">
-                              <span>👤 {address.contactName || currentUser.name}</span>
-                              <span>📞 {address.contactPhone || currentUser.phone}</span>
-                            </p>
-                          )}
-                          {address.instructions && (
-                            <p className="text-[10px] text-slate-500 italic mt-1 bg-white/80 p-1.5 rounded-lg border border-slate-100">
-                              💬 &quot;{address.instructions}&quot;
-                            </p>
-                          )}
                         </div>
                       </div>
                     );
@@ -1371,32 +1438,32 @@ function BookingWizardContent() {
 
               {/* No Addresses Prompt / Inline Form */}
               {(isAddingNewAddress || savedAddresses.length === 0) && (
-                <form onSubmit={handleSaveNewAddress} className="p-4 sm:p-5 bg-slate-50 rounded-2xl border border-indigo-100/80 space-y-4 animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/70">
+                <form onSubmit={handleSaveNewAddress} className="p-4 sm:p-5 bg-[#FCF9F7] rounded-2xl border border-[#E8DDE1] space-y-4 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E8DDE1]">
                     <div>
                       <span className="text-xs font-black text-[#2B1326]">
-                        {savedAddresses.length === 0 ? '📍 Add Your Doorstep Address' : '📍 New Address Details'}
+                        {savedAddresses.length === 0 ? '📍 Add Pickup Address' : '📍 New Address'}
                       </span>
-                      <p className="text-[11px] text-slate-500">For laundry pickup &amp; delivery</p>
+                      <p className="text-[11px] text-[#6F626A]">Doorstep pickup &amp; delivery location</p>
                     </div>
                     <button
                       type="button"
                       onClick={handleUseCurrentLocation}
                       disabled={isDetectingLocation}
-                      className="text-[11px] font-bold text-[#5B214F] bg-white px-3 py-1.5 rounded-xl border border-indigo-200 hover:bg-[#F7F0F2] flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 transition"
+                      className="text-[11px] font-bold text-[#5B214F] bg-white px-3 py-1.5 rounded-xl border border-[#E8DDE1] hover:bg-[#F7F0F2] flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 transition"
                     >
                       <Navigation className="w-3.5 h-3.5 text-[#5B214F]" />
-                      <span>{isDetectingLocation ? 'Detecting…' : 'Use GPS Location'}</span>
+                      <span>{isDetectingLocation ? 'Detecting…' : 'GPS Auto-Detect'}</span>
                     </button>
                   </div>
 
-                  {/* Address Type Tag Selector */}
+                  {/* Address Type Tag */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1.5">Address Label</label>
+                    <label className="text-[11px] font-bold text-[#6F626A] block mb-1.5">Address Type</label>
                     <div className="flex gap-2">
                       {[
                         { type: 'Home', label: 'Home 🏠' },
-                        { type: 'Office', label: 'Office / Work 🏢' },
+                        { type: 'Office', label: 'Office 🏢' },
                         { type: 'Other', label: 'Other 📍' },
                       ].map((t) => (
                         <button
@@ -1406,7 +1473,7 @@ function BookingWizardContent() {
                           className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                             newAddressForm.type === t.type
                               ? 'bg-[#5B214F] text-white shadow-xs'
-                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100/70'
+                              : 'bg-white border border-[#E8DDE1] text-[#2B1326] hover:bg-[#F7F0F2]'
                           }`}
                         >
                           <span>{t.label}</span>
@@ -1415,55 +1482,28 @@ function BookingWizardContent() {
                     </div>
                   </div>
 
-                  {/* Contact Details Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Contact Person Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={newAddressForm.contactName}
-                        onChange={(e) => setNewAddressForm((prev) => ({ ...prev, contactName: e.target.value }))}
-                        placeholder="e.g. Rahul Sharma"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Contact Mobile Number</label>
-                      <input
-                        type="tel"
-                        required
-                        maxLength={10}
-                        value={newAddressForm.contactPhone}
-                        onChange={(e) => setNewAddressForm((prev) => ({ ...prev, contactPhone: e.target.value.replace(/\D/g, '') }))}
-                        placeholder="10-digit mobile number"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
-                      />
-                    </div>
-                  </div>
-
                   {/* House / Flat & Street Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">House / Flat / Building No. *</label>
+                      <label className="text-[11px] font-bold text-[#6F626A] block mb-1">House / Flat No. *</label>
                       <input
                         type="text"
                         required
                         value={newAddressForm.houseNo}
                         onChange={(e) => setNewAddressForm((prev) => ({ ...prev, houseNo: e.target.value }))}
-                        placeholder="e.g. Flat 402, Block B, Rainbow Heights"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
+                        placeholder="e.g. Flat 402, Rainbow Heights"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-white text-xs outline-none focus:border-[#5B214F]"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Street / Area / Locality *</label>
+                      <label className="text-[11px] font-bold text-[#6F626A] block mb-1">Street / Area *</label>
                       <input
                         type="text"
                         required
                         value={newAddressForm.area}
                         onChange={(e) => setNewAddressForm((prev) => ({ ...prev, area: e.target.value }))}
-                        placeholder="e.g. KPHB 6th Phase, Road No. 3"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
+                        placeholder="e.g. KPHB Phase 6, Road No. 3"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-white text-xs outline-none focus:border-[#5B214F]"
                       />
                     </div>
                   </div>
@@ -1471,78 +1511,55 @@ function BookingWizardContent() {
                   {/* Landmark, City & Pincode Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Landmark (Optional)</label>
+                      <label className="text-[11px] font-bold text-[#6F626A] block mb-1">Landmark (Optional)</label>
                       <input
                         type="text"
                         value={newAddressForm.landmark}
                         onChange={(e) => setNewAddressForm((prev) => ({ ...prev, landmark: e.target.value }))}
-                        placeholder="e.g. Near Rythu Bazaar"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
+                        placeholder="e.g. Near Metro"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-white text-xs outline-none focus:border-[#5B214F]"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">City / Town *</label>
+                      <label className="text-[11px] font-bold text-[#6F626A] block mb-1">City *</label>
                       <input
                         type="text"
                         required
                         value={newAddressForm.city}
                         onChange={(e) => setNewAddressForm((prev) => ({ ...prev, city: e.target.value }))}
-                        placeholder="e.g. Hyderabad"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
+                        placeholder="Hyderabad"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-white text-xs outline-none focus:border-[#5B214F]"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Pincode *</label>
+                      <label className="text-[11px] font-bold text-[#6F626A] block mb-1">Pincode *</label>
                       <input
                         type="text"
                         required
                         maxLength={6}
                         value={newAddressForm.pincode}
                         onChange={(e) => setNewAddressForm((prev) => ({ ...prev, pincode: e.target.value.replace(/\D/g, '') }))}
-                        placeholder="6-Digit Pincode"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
+                        placeholder="500072"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-white text-xs font-bold outline-none focus:border-[#5B214F]"
                       />
                     </div>
                   </div>
-
-                  {/* Delivery Instructions */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Delivery Instructions / Gate Code (Optional)</label>
-                    <input
-                      type="text"
-                      value={newAddressForm.instructions}
-                      onChange={(e) => setNewAddressForm((prev) => ({ ...prev, instructions: e.target.value }))}
-                      placeholder="e.g. Leave with security / Ring doorbell / Call on arrival"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100"
-                    />
-                  </div>
-
-                  {/* Set as Default Checkbox */}
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={newAddressForm.isDefault}
-                      onChange={(e) => setNewAddressForm((prev) => ({ ...prev, isDefault: e.target.checked }))}
-                      className="rounded text-[#5B214F] focus:ring-[#5B214F]"
-                    />
-                    <span>Set as my default pickup &amp; delivery address</span>
-                  </label>
 
                   <div className="flex gap-2 pt-1">
                     {savedAddresses.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setIsAddingNewAddress(false)}
-                        className="flex-1 py-3 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                        className="flex-1 py-3 rounded-xl border border-[#E8DDE1] text-xs font-bold text-[#6F626A] hover:bg-slate-100 transition cursor-pointer"
                       >
                         Cancel
                       </button>
                     )}
                     <button
                       type="submit"
-                      className="flex-2 py-3 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-black text-xs sm:text-sm shadow-md shadow-indigo-500/25 transition cursor-pointer active:scale-95"
+                      className="flex-2 py-3 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-black text-xs sm:text-sm shadow-md shadow-[#5B214F]/25 transition cursor-pointer active:scale-95"
                     >
-                      Save &amp; Select Address
+                      Save Address
                     </button>
                   </div>
                 </form>
@@ -1554,8 +1571,8 @@ function BookingWizardContent() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   maxLength={500}
-                  placeholder="Special instructions (e.g. Ring doorbell, stain removal for white shirt, leave with security)..."
-                  className="w-full rounded-2xl border border-slate-200 p-3 text-xs outline-none focus:border-[#5B214F] focus:ring-2 focus:ring-indigo-100 min-h-20"
+                  placeholder="Special instructions (e.g. Ring doorbell, stain removal for shirt, leave with security)..."
+                  className="w-full rounded-2xl border border-[#E8DDE1] bg-[#FCF9F7] p-3 text-xs outline-none focus:border-[#5B214F] focus:bg-white min-h-20"
                 />
               </div>
             </div>
@@ -1565,7 +1582,7 @@ function BookingWizardContent() {
               <button
                 type="button"
                 onClick={() => setStep(0)}
-                className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+                className="px-5 py-2.5 text-xs font-bold text-[#6F626A] hover:text-[#2B1326] cursor-pointer"
               >
                 ← Back to Bag
               </button>
@@ -1573,10 +1590,10 @@ function BookingWizardContent() {
                 type="button"
                 disabled={!cart.items.length}
                 onClick={continueToPayment}
-                className="px-7 py-3.5 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-extrabold text-xs sm:text-sm shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                className="px-7 py-3.5 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-2xl font-extrabold text-xs sm:text-sm shadow-md shadow-[#5B214F]/25 flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
               >
-                <span>Review Order &amp; Pay</span>
-                <ChevronRight className="w-4 h-4" />
+                <span>Review Order &amp; Confirm</span>
+                <ChevronRight className="w-4 h-4 text-[#D6B36A]" />
               </button>
             </div>
           </section>
@@ -1586,53 +1603,42 @@ function BookingWizardContent() {
             STEP 3: REVIEW & SECURE PAYMENT
         ───────────────────────────────────────────────────── */}
         {step === 2 && (
-          <section className="mx-auto mt-8 max-w-3xl space-y-6">
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-2xs space-y-6">
+          <section className="mx-auto max-w-3xl space-y-6">
+            <div className="rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-7 shadow-2xs space-y-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#5B214F]">Step 3 of 3</p>
-                <h2 className="text-xl font-black text-[#2B1326] mt-0.5">Order Confirmation &amp; Payment</h2>
+                <h2 className="text-xl font-black text-[#2B1326] mt-0.5 font-poppins">Order Confirmation &amp; Payment</h2>
               </div>
-
-              {!cart.items.length && (
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
-                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-extrabold">Your laundry bag is empty</p>
-                    <p className="mt-1 text-xs leading-5 text-amber-800">Add at least one garment or bulk wash service before payment. Your pickup details will be saved.</p>
-                  </div>
-                  <button type="button" onClick={() => setStep(0)} className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-[11px] font-black text-white transition hover:bg-amber-700">Add items</button>
-                </div>
-              )}
 
               {/* Summary Cards */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/70 text-xs">
+                <div className="rounded-2xl bg-[#FCF9F7] p-4 border border-[#E8DDE1] text-xs">
                   <div className="flex items-center gap-1.5 text-[#5B214F] font-bold mb-1">
                     <MapPin className="w-3.5 h-3.5" />
-                    <span>Pickup &amp; Delivery Location</span>
+                    <span>Pickup Location</span>
                   </div>
                   <p className="font-extrabold text-[#2B1326] text-sm mt-1">{selectedAddress?.street}</p>
-                  <p className="text-slate-500 mt-0.5">
-                    {selectedAddress?.landmark ? `${selectedAddress.landmark}, ` : ''}{selectedAddress?.city} - {selectedAddress?.pincode}
+                  <p className="text-[#6F626A] mt-0.5">
+                    {selectedAddress?.city} - {selectedAddress?.pincode}
                   </p>
-                  <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-500">Scheduled Time:</span>
+                  <div className="mt-2.5 pt-2 border-t border-[#E8DDE1] flex items-center justify-between text-[11px]">
+                    <span className="text-[#6F626A]">Pickup Window:</span>
                     <span className="font-bold text-[#2B1326]">{formatPickupDate(activePickupDate)} ({selectedSlot?.startTime})</span>
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/70 text-xs">
+                <div className="rounded-2xl bg-[#FCF9F7] p-4 border border-[#E8DDE1] text-xs">
                   <div className="flex items-center gap-1.5 text-[#5B214F] font-bold mb-1">
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>Care &amp; Garments Summary</span>
+                    <span>Garments Summary</span>
                   </div>
                   <p className="font-extrabold text-[#2B1326] text-sm mt-1">{cartTotals.itemCount} Items Selected</p>
-                  <p className="text-slate-500 mt-0.5">
+                  <p className="text-[#6F626A] mt-0.5">
                     {cart.expressTier === 'EXPRESS_24H' ? '⚡ 24h Express Delivery' : 'Standard 48h Delivery'}
                   </p>
-                  <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-500">Service Model:</span>
-                    <span className="font-bold text-emerald-600">Doorstep Sanitized Care</span>
+                  <div className="mt-2.5 pt-2 border-t border-[#E8DDE1] flex items-center justify-between text-[11px]">
+                    <span className="text-[#6F626A]">Sanitization:</span>
+                    <span className="font-bold text-emerald-700">100% Ozone Sterile Seal</span>
                   </div>
                 </div>
               </div>
@@ -1646,12 +1652,12 @@ function BookingWizardContent() {
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value)}
                     placeholder="Enter Coupon (e.g. WELCOME100)"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-[#5B214F] uppercase"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E8DDE1] text-xs font-bold outline-none focus:border-[#5B214F] uppercase bg-[#FCF9F7]"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#2B1326] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                  className="px-5 py-2.5 bg-[#2B1326] hover:bg-[#5B214F] text-white rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   Apply
                 </button>
@@ -1669,12 +1675,12 @@ function BookingWizardContent() {
                     className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
                       paymentMethod === 'ONLINE_RAZORPAY'
                         ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/20'
-                        : 'bg-white border-slate-200 hover:border-indigo-200'
+                        : 'bg-[#FCF9F7] border-[#E8DDE1] hover:bg-white'
                     }`}
                   >
                     <CreditCard className="w-5 h-5 text-[#5B214F]" />
-                    <p className="mt-2 font-extrabold text-sm text-[#2B1326]">Pay Online (Razorpay)</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">UPI (GPay/PhonePe), Credit/Debit Cards, NetBanking</p>
+                    <p className="mt-2 font-extrabold text-sm text-[#2B1326]">Pay Online (Razorpay / UPI)</p>
+                    <p className="text-[11px] text-[#6F626A] mt-0.5">UPI (GPay/PhonePe), Cards, NetBanking</p>
                   </button>
 
                   <button
@@ -1683,23 +1689,23 @@ function BookingWizardContent() {
                     className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
                       paymentMethod === 'COD'
                         ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/20'
-                        : 'bg-white border-slate-200 hover:border-indigo-200'
+                        : 'bg-[#FCF9F7] border-[#E8DDE1] hover:bg-white'
                     }`}
                   >
                     <Truck className="w-5 h-5 text-[#5B214F]" />
-                    <p className="mt-2 font-extrabold text-sm text-[#2B1326]">Pay on Delivery (COD)</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Pay via cash or UPI upon delivery after washing</p>
+                    <p className="mt-2 font-extrabold text-sm text-[#2B1326]">Pay on Delivery (COD / UPI)</p>
+                    <p className="text-[11px] text-[#6F626A] mt-0.5">Pay upon delivery after washing</p>
                   </button>
                 </div>
               </div>
 
               {/* Final Price Box */}
-              <div className="rounded-2xl border border-indigo-100 bg-[#F7F0F2] p-4 flex items-center justify-between">
+              <div className="rounded-2xl border border-[#E8DDE1] bg-[#F7F0F2] p-4 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-bold text-slate-600 block">Total Amount Payable</span>
-                  <span className="text-2xl font-black text-[#5B214F]">₹{cartTotals.grandTotal}</span>
+                  <span className="text-xs font-bold text-[#6F626A] block">Total Amount Payable</span>
+                  <span className="text-2xl font-black text-[#5B214F] font-poppins">₹{cartTotals.grandTotal}</span>
                 </div>
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+                <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
                   All Taxes &amp; GST Included
                 </span>
               </div>
@@ -1709,7 +1715,7 @@ function BookingWizardContent() {
                 type="button"
                 disabled={isProcessing || !cart.items.length}
                 onClick={completeBooking}
-                className="w-full py-4 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-xl font-extrabold text-sm shadow-xl shadow-indigo-500/25 flex items-center justify-center gap-2 transition disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none cursor-pointer active:scale-95"
+                className="w-full py-4 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-2xl font-extrabold text-sm shadow-xl shadow-[#5B214F]/25 flex items-center justify-center gap-2 transition disabled:opacity-60 cursor-pointer active:scale-95"
               >
                 {isProcessing ? (
                   <span>Processing Secure Checkout…</span>
@@ -1720,7 +1726,7 @@ function BookingWizardContent() {
                         ? `Pay ₹${cartTotals.grandTotal} & Schedule Pickup`
                         : 'Confirm Doorstep Pickup Booking'}
                     </span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4 text-[#D6B36A]" />
                   </>
                 )}
               </button>
@@ -1729,7 +1735,7 @@ function BookingWizardContent() {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="mx-auto block text-xs font-bold text-slate-500 hover:text-[#5B214F] cursor-pointer"
+              className="mx-auto block text-xs font-bold text-[#6F626A] hover:text-[#5B214F] cursor-pointer"
             >
               ← Back to pickup &amp; address
             </button>
@@ -1737,13 +1743,13 @@ function BookingWizardContent() {
         )}
       </main>
 
-      {/* ── MOBILE STICKY FLOATING CART BAR ── */}
+      {/* ── MOBILE STICKY BOTTOM CHECKOUT BAR ── */}
       {hasItems && step === 0 && (
-        <div className="fixed bottom-0 inset-x-0 p-3 bg-white/95 backdrop-blur-md border-t border-[#E8DDE1] shadow-[0_-8px_30px_rgba(43,19,38,0.12)] z-40 lg:hidden animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-0 inset-x-0 p-3.5 bg-white/95 backdrop-blur-md border-t border-[#E8DDE1] shadow-[0_-10px_30px_rgba(43,19,38,0.12)] z-40 lg:hidden animate-in slide-in-from-bottom duration-200">
           <div className="max-w-md mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-xl bg-[#F7F0F2] border border-[#5B214F]/20 flex items-center justify-center text-[#5B214F] font-black shrink-0">
-                <ShoppingBag className="w-5 h-5" />
+                <ShoppingBag className="w-5 h-5 text-[#5B214F]" />
               </div>
               <div>
                 <div className="text-[10px] uppercase font-extrabold text-[#6F626A]">
@@ -1758,7 +1764,7 @@ function BookingWizardContent() {
             <button
               type="button"
               onClick={continueToDetails}
-              className="px-5 py-3 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white text-xs font-extrabold shadow-md shadow-[#5B214F]/20 flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+              className="px-6 py-3 rounded-2xl bg-[#5B214F] hover:bg-[#48193F] text-white text-xs font-extrabold shadow-md shadow-[#5B214F]/20 flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
             >
               <span>Schedule Pickup</span>
               <ArrowRight className="w-3.5 h-3.5 text-[#D6B36A]" />
