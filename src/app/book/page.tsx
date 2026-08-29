@@ -45,6 +45,8 @@ import {
   createRazorpayPaymentOrder,
   verifyRazorpayPayment,
   fetchFromBackend,
+  calculateDeliveryFare,
+  getNearestHubForPincode,
 } from '@/lib/api';
 import type { PaymentMethod, ExpressTier, Address } from '@/types';
 
@@ -242,6 +244,19 @@ function BookingWizardContent() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ONLINE_RAZORPAY');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Live distance-based delivery fare state
+  const [liveFare, setLiveFare] = useState<{
+    distanceKm: number;
+    deliveryFee: number;
+    isFreeDelivery: boolean;
+    hubName: string;
+    hubCity: string;
+    calculationNote: string;
+  } | null>(null);
+  const [isFareLoading, setIsFareLoading] = useState(false);
+  const [customerLat, setCustomerLat] = useState<number | null>(null);
+  const [customerLng, setCustomerLng] = useState<number | null>(null);
+
   // Bulk wash weight state
   const [bulkKgWeight, setBulkKgWeight] = useState<number>(4);
   const [selectedBulkServiceId, setSelectedBulkServiceId] = useState<string>(
@@ -435,6 +450,8 @@ function BookingWizardContent() {
         try {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          setCustomerLat(lat);
+          setCustomerLng(lng);
           const geoData = await fetchFromBackend<any>(`/pincodes/reverse-geocode?lat=${lat}&lng=${lng}`);
           if (geoData && geoData.pincode) {
             setNewAddressForm((prev) => ({
@@ -445,8 +462,28 @@ function BookingWizardContent() {
             }));
             showToast(`📍 Location detected: ${geoData.areaName || ''} (${geoData.pincode})`, 'success');
           }
+          // Calculate live delivery fare from GPS coordinates
+          setIsFareLoading(true);
+          const fareData = await calculateDeliveryFare({
+            customerLat: lat,
+            customerLng: lng,
+            customerPincode: geoData?.pincode,
+            orderTotal: cartTotals.itemTotal,
+          });
+          if (fareData) {
+            setLiveFare({
+              distanceKm: fareData.distanceKm,
+              deliveryFee: fareData.deliveryFee,
+              isFreeDelivery: fareData.isFreeDelivery,
+              hubName: fareData.assignedHub?.name || 'Processing Hub',
+              hubCity: fareData.assignedHub?.city || '',
+              calculationNote: fareData.calculationNote || '',
+            });
+          }
+          setIsFareLoading(false);
         } catch {
           showToast('Could not reverse-geocode coordinates. Please enter manually.', 'info');
+          setIsFareLoading(false);
         } finally {
           setIsDetectingLocation(false);
         }
@@ -457,6 +494,31 @@ function BookingWizardContent() {
       },
       { timeout: 8000 }
     );
+  };
+
+  // Calculate fare by pincode when it changes
+  const handlePincodeBlurFare = async (pincode: string) => {
+    if (!/^\d{6}$/.test(pincode)) return;
+    setIsFareLoading(true);
+    try {
+      const hubData = await getNearestHubForPincode(pincode);
+      const fareData = await calculateDeliveryFare({
+        customerLat: customerLat ?? undefined,
+        customerLng: customerLng ?? undefined,
+        customerPincode: pincode,
+        orderTotal: cartTotals.itemTotal,
+      });
+      if (fareData) {
+        setLiveFare({
+          distanceKm: fareData.distanceKm,
+          deliveryFee: fareData.deliveryFee,
+          isFreeDelivery: fareData.isFreeDelivery,
+          hubName: fareData.assignedHub?.name || hubData?.hub?.name || 'Processing Hub',
+          hubCity: fareData.assignedHub?.city || hubData?.hub?.city || '',
+          calculationNote: fareData.calculationNote || '',
+        });
+      }
+    } catch { /* ignore */ } finally { setIsFareLoading(false); }
   };
 
   const handleSaveNewAddress = (e: React.FormEvent) => {
@@ -1463,11 +1525,27 @@ function BookingWizardContent() {
                         maxLength={6}
                         value={newAddressForm.pincode}
                         onChange={(e) => setNewAddressForm((prev) => ({ ...prev, pincode: e.target.value.replace(/\D/g, '') }))}
+                         onBlur={(e) => handlePincodeBlurFare(e.target.value)}
                         placeholder="500072"
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8DDE1] bg-white text-xs font-bold outline-none focus:border-[#5B214F]"
                       />
                     </div>
                   </div>
+
+                   {/* Live Hub & Fare Banner */}
+                   {(isFareLoading || liveFare) && (
+                     <div className="rounded-xl px-4 py-3 border text-xs bg-purple-50 border-purple-200">
+                       {isFareLoading ? (
+                         <div className="flex items-center gap-2 text-slate-500 text-xs">Finding nearest hub...</div>
+                       ) : liveFare ? (
+                         <div className="space-y-1">
+                           <div className="flex justify-between"><span className="font-bold text-xs text-purple-900">{liveFare.hubName}</span>{liveFare.distanceKm < 900 && <span className="text-xs text-gray-500">📍 {liveFare.distanceKm} km</span>}</div>
+                           <div className="flex justify-between"><span className="text-xs text-gray-500">Delivery fee:</span><span className="text-xs font-black text-purple-700">{liveFare.isFreeDelivery ? "FREE!" : "Rs." + liveFare.deliveryFee}</span></div>
+                           {liveFare.calculationNote && <p className="text-gray-400 text-xs">{liveFare.calculationNote}</p>}
+                         </div>
+                       ) : null}
+                     </div>
+                   )}
 
                   <div className="flex gap-2 pt-1">
                     {savedAddresses.length > 0 && (

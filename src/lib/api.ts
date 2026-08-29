@@ -141,3 +141,38 @@ export function loadRazorpayCheckout(): Promise<boolean> {
 }
 
 // Admin-only mutation helpers are intentionally not exported here. They are proxied through the protected admin console.
+
+// ── Hub / Store Locator APIs ──────────────────────────────────────────────────
+
+export const getBackendHubs = () => fetchFromBackend<any[]>('/hubs');
+
+export const getNearestHubs = (params: {
+  lat?: number;
+  lng?: number;
+  pincode?: string;
+  limit?: number;
+  orderTotal?: number;
+}) => {
+  const qs = new URLSearchParams();
+  if (params.lat !== undefined) qs.set('lat', String(params.lat));
+  if (params.lng !== undefined) qs.set('lng', String(params.lng));
+  if (params.pincode) qs.set('pincode', params.pincode);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.orderTotal) qs.set('orderTotal', String(params.orderTotal));
+  return fetchFromBackend<any[]>(`/hubs/nearest?${qs.toString()}`);
+};
+
+export const calculateDeliveryFare = (payload: {
+  customerLat?: number;
+  customerLng?: number;
+  customerPincode?: string;
+  orderTotal?: number;
+  isExpress?: boolean;
+}) =>
+  fetchFromBackend<any>('/hubs/calculate-fare', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const getNearestHubForPincode = (pincode: string) =>
+  fetchFromBackend<any>(`/hubs/nearest-for-pincode?pincode=${encodeURIComponent(pincode)}`);

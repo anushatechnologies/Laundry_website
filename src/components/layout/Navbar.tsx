@@ -112,6 +112,7 @@ export const Navbar: React.FC = () => {
 
   const navLinks = [
     { label: 'Services', href: '/services' },
+    { label: 'Our Stores', href: '/stores' },
     { label: 'How It Works', href: '/#how-it-works' },
     { label: 'Pricing', href: '/pricing' },
     { label: 'Subscriptions', href: '/subscriptions' },
