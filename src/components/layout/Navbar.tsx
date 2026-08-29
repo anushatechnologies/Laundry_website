@@ -160,8 +160,9 @@ export const Navbar: React.FC = () => {
       {/* 2. MAIN HEADER NAVBAR SPACER */}
       <div
         aria-hidden="true"
-        style={{ height: isAnnouncementVisible ? 80 + (announcementHeight || 36) : 80 }}
-        className="w-full shrink-0 transition-all duration-200"
+        className={`w-full shrink-0 transition-all duration-200 ${
+          isAnnouncementVisible ? 'h-[164px] lg:h-[116px]' : 'h-[128px] lg:h-[80px]'
+        }`}
       />
 
       <header
