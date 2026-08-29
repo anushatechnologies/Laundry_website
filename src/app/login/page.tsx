@@ -110,7 +110,7 @@ export default function LoginPage() {
     }
   };
 
-  /* ── STEP 1: enter phone → send real Firebase SMS OTP or backend fallback ── */
+  /* ── STEP 1: enter phone → check if new user or existing account ── */
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (phone.length !== 10) {
@@ -119,14 +119,38 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      // 1. Try Real Firebase Phone Auth SMS
-      const firebaseSent = await triggerFirebasePhoneAuth(phone);
-      if (firebaseSent) {
+      // 1. Check if phone is already registered in backend
+      let exists = false;
+      try {
+        const checkRes = await fetch(`${API}/customers/check-phone`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const checkData = await checkRes.json().catch(() => ({}));
+        exists = checkData.exists === true;
+        if (checkData.customer?.name) setName(checkData.customer.name);
+        if (checkData.customer?.email) setEmail(checkData.customer.email);
+      } catch {}
+
+      setIsNewUser(!exists);
+
+      // If new customer → Show Name & Email Registration step
+      if (!exists) {
+        setStep('REGISTER');
         setLoading(false);
         return;
       }
 
-      // 2. Direct Backend SMS Fallback
+      // If existing customer → Trigger Firebase Phone Auth SMS directly
+      const firebaseSent = await triggerFirebasePhoneAuth(phone);
+      if (firebaseSent) {
+        setStep('OTP');
+        setLoading(false);
+        return;
+      }
+
+      // Direct Backend SMS Fallback
       const res = await fetch(`${API}/customers/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,15 +162,7 @@ export default function LoginPage() {
         throw new Error(data.message || 'Failed to send OTP code.');
       }
 
-      const exists = data.exists === true;
-      setIsNewUser(!exists);
       setResendTimer(60);
-
-      if (data.devOtp) {
-        setDevOtp(data.devOtp);
-      }
-
-      // Always proceed directly to OTP verification screen for seamless sign-in
       setStep('OTP');
       showToast(`Verification OTP sent to +91 ${phone}`, 'success');
     } catch (err: unknown) {
@@ -156,36 +172,38 @@ export default function LoginPage() {
     }
   };
 
-  /* ── STEP 2a (new user only): fill name + email → go to OTP ── */
+  /* ── STEP 2a (new user registration): fill name + email → send Firebase OTP ── */
   const handleRegisterContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       showToast('Please enter your full name', 'error');
       return;
     }
-    if (!email.trim()) {
-      showToast('Please enter your email address', 'error');
+    if (!email.trim() || !email.includes('@')) {
+      showToast('Please enter a valid email address', 'error');
       return;
     }
 
     setLoading(true);
     try {
+      // 1. Trigger Firebase Phone Auth SMS
       const firebaseSent = await triggerFirebasePhoneAuth(phone);
       if (firebaseSent) {
+        setStep('REG_OTP');
         setLoading(false);
         return;
       }
 
+      // 2. Direct backend fallback
       const res = await fetch(`${API}/customers/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, name: name.trim(), email: email.trim() }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.devOtp) setDevOtp(data.devOtp);
       setResendTimer(60);
       setStep('REG_OTP');
-      showToast(`Verification code sent for +91 ${phone}`, 'success');
+      showToast(`Verification code sent to mobile +91 ${phone}`, 'success');
     } catch {
       setStep('REG_OTP');
     } finally {
@@ -244,7 +262,11 @@ export default function LoginPage() {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${idToken}`,
             },
-            body: JSON.stringify({ phone }),
+            body: JSON.stringify({
+              phone,
+              name: name.trim(),
+              email: email.trim(),
+            }),
           });
           const loginData = await loginRes.json().catch(() => ({}));
 
