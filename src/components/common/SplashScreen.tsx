@@ -19,8 +19,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [isExiting, setIsExiting] = useState(false);
   const [isRemoved, setIsRemoved] = useState(false);
 
+  const dismissSplash = () => {
+    setIsExiting(true);
+    setTimeout(() => {
+      setIsRemoved(true);
+      onComplete?.();
+    }, 500);
+  };
+
   useEffect(() => {
-    // 1. Character-by-character typewriter effect
+    // 1. Fast, responsive typewriter effect (60ms per character)
     let charIndex = 0;
     const typingInterval = setInterval(() => {
       if (charIndex < appName.length) {
@@ -28,29 +36,39 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         charIndex++;
       } else {
         clearInterval(typingInterval);
-        // Show tagline after typing completes
+        setShowTagline(true);
+        // Smooth slide-up transition after 600ms
         setTimeout(() => {
-          setShowTagline(true);
-          // Wait briefly, then trigger the smooth curtain slide-up
+          setIsExiting(true);
           setTimeout(() => {
-            setIsExiting(true);
-            setTimeout(() => {
-              setIsRemoved(true);
-              onComplete?.();
-            }, 900); // 900ms exit animation duration
-          }, 1100);
-        }, 300);
+            setIsRemoved(true);
+            onComplete?.();
+          }, 500);
+        }, 600);
       }
-    }, 110); // 110ms per character for crisp, elegant pacing
+    }, 60);
 
-    return () => clearInterval(typingInterval);
+    // Hard safety timeout: Never allow splash to stay visible past 2.2 seconds
+    const safetyTimeout = setTimeout(() => {
+      setIsExiting(true);
+      setTimeout(() => {
+        setIsRemoved(true);
+        onComplete?.();
+      }, 400);
+    }, 2200);
+
+    return () => {
+      clearInterval(typingInterval);
+      clearTimeout(safetyTimeout);
+    };
   }, [appName, onComplete]);
 
   if (isRemoved) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-b from-[#1C0B18] via-[#2B1326] to-[#120510] text-white transition-all duration-[900ms] ease-[cubic-bezier(0.77,0,0.175,1)] ${
+      onClick={dismissSplash}
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-b from-[#1C0B18] via-[#2B1326] to-[#120510] text-white transition-all duration-[600ms] ease-[cubic-bezier(0.77,0,0.175,1)] cursor-pointer select-none ${
         isExiting
           ? '-translate-y-full opacity-90 scale-[0.98] pointer-events-none'
           : 'translate-y-0 opacity-100 scale-100'
