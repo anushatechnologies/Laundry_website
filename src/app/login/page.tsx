@@ -101,13 +101,9 @@ export default function LoginPage() {
         setDevOtp(data.devOtp);
       }
 
-      if (exists) {
-        setStep('OTP');
-        showToast(`OTP sent to +91 ${phone}`, 'success');
-      } else {
-        setStep('REGISTER');
-        showToast('New user — please fill your details to register', 'info');
-      }
+      // Always proceed directly to OTP verification screen for seamless sign-in
+      setStep('OTP');
+      showToast(`Verification OTP sent to +91 ${phone}`, 'success');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to send OTP. Please try again.', 'error');
     } finally {

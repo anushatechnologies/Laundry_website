@@ -704,11 +704,11 @@ function BookingWizardContent() {
             STEP 1: CHOOSE SERVICE & GARMENTS (CLEAN & FAST)
         ───────────────────────────────────────────────────── */}
         {step === 0 && (
-          <section className={`grid gap-4 transition-all duration-300 w-full max-w-full ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-4xl mx-auto'}`}>
-            <div className="space-y-3 w-full max-w-full">
+          <section className={`grid gap-4 transition-all duration-300 w-full min-w-0 max-w-full ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-4xl mx-auto'}`}>
+            <div className="space-y-3 w-full min-w-0 max-w-full">
               
               {/* Horizontal Scrollable Service Filter Ribbon (Clean Single Row) */}
-              <div className="bg-white rounded-3xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-2.5 w-full max-w-full">
+              <div className="bg-white rounded-3xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-2.5 w-full min-w-0 max-w-full overflow-hidden">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#5B214F] flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-[#D6B36A]" />
@@ -720,7 +720,7 @@ function BookingWizardContent() {
                 </div>
 
                 {/* Horizontal Scrollable Service Tabs (Single Sleek Row) */}
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full">
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full min-w-0">
                   {serviceTabs.map((s) => {
                     const isSelected = selectedServiceId === s.id;
                     return (
@@ -746,7 +746,7 @@ function BookingWizardContent() {
 
                 {/* Search Bar + Category Ribbon (When viewing individual garments) */}
                 {selectedServiceId !== 'PER_KG' && (
-                  <div className="space-y-2 pt-2 border-t border-[#F2EAEF] w-full">
+                  <div className="space-y-2 pt-2 border-t border-[#F2EAEF] w-full min-w-0">
                     <div className="relative w-full">
                       <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#9A8D94]" />
                       <input
@@ -767,7 +767,7 @@ function BookingWizardContent() {
                       )}
                     </div>
 
-                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar w-full">
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar w-full min-w-0">
                       {categories.map((item) => (
                         <button
                           key={item.key}
@@ -790,12 +790,12 @@ function BookingWizardContent() {
 
               {/* 2. THE CLEAN GARMENT CATALOG (Single Row with BOLD ALWAYS-VISIBLE + / - BUTTONS) */}
               {selectedServiceId !== 'PER_KG' && (
-                <div className="space-y-2 w-full max-w-full">
+                <div className="space-y-2 w-full min-w-0 max-w-full">
                   <div className="flex items-center justify-between px-1 text-[11px] text-[#6F626A] font-bold">
                     <span>{activeGarments.length} Items for {serviceTabs.find((s) => s.id === selectedServiceId)?.label}</span>
                   </div>
 
-                  <div className="grid gap-2 sm:grid-cols-2 w-full max-w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full min-w-0 max-w-full">
                     {activeGarments.map(({ cloth, price }) => {
                       if (!price) return null;
                       const itemKey = `${cloth.id}-${price.serviceId}`;
@@ -805,7 +805,7 @@ function BookingWizardContent() {
                       return (
                         <div
                           key={cloth.id}
-                          className={`w-full max-w-full rounded-2xl border p-2.5 sm:p-3 transition-all flex items-center justify-between gap-2 shadow-2xs ${
+                          className={`w-full min-w-0 max-w-full rounded-2xl border p-2.5 sm:p-3 transition-all flex items-center justify-between gap-2 overflow-hidden shadow-2xs ${
                             qty > 0
                               ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/25'
                               : 'bg-white border-[#E8DDE1] hover:border-[#5B214F]/40'
