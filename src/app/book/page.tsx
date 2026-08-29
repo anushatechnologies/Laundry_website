@@ -165,10 +165,9 @@ function BookingWizardContent() {
   }, []);
 
   const hasItems = mounted && cart.items.length > 0;
-  const [activeCatalogMode, setActiveCatalogMode] = useState<'GARMENTS' | 'PER_KG'>('GARMENTS');
+  const [activeServiceTab, setActiveServiceTab] = useState<string>('ALL');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('ALL');
-  const [serviceFilter, setServiceFilter] = useState('ALL');
   const [selectedAddressId, setSelectedAddressId] = useState(savedAddresses[0]?.id || '');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [selectedPickupDate, setSelectedPickupDate] = useState('');
@@ -214,10 +213,16 @@ function BookingWizardContent() {
 
   useEffect(() => {
     if (serviceQuery) {
-      if (serviceQuery === 'wash-fold' || serviceQuery === 'wash-iron') {
-        setActiveCatalogMode('PER_KG');
-      } else {
-        setActiveCatalogMode('GARMENTS');
+      if (serviceQuery === 'wash-fold') {
+        setActiveServiceTab('srv-m-wash-fold');
+      } else if (serviceQuery === 'wash-iron') {
+        setActiveServiceTab('srv-m-wash-iron');
+      } else if (serviceQuery === 'dry-clean') {
+        setActiveServiceTab('srv-m-dry-clean');
+      } else if (serviceQuery === 'steam-press') {
+        setActiveServiceTab('srv-m-steam-press');
+      } else if (serviceQuery === 'per-kg' || serviceQuery === 'bulk') {
+        setActiveServiceTab('PER_KG');
       }
     }
   }, [serviceQuery]);
@@ -234,7 +239,6 @@ function BookingWizardContent() {
   const [couponInput, setCouponInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ONLINE_RAZORPAY');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [justAddedClothId, setJustAddedClothId] = useState<string | null>(null);
 
   // Bulk wash weight state
   const [bulkKgWeight, setBulkKgWeight] = useState<number>(4);
@@ -252,6 +256,15 @@ function BookingWizardContent() {
     }))];
   }, [clothTypes]);
 
+  const serviceTabs = [
+    { id: 'ALL', label: 'All Services', icon: '✨' },
+    { id: 'srv-m-steam-press', label: 'Steam Press', icon: '💨', startingPrice: '₹20' },
+    { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺', startingPrice: '₹30' },
+    { id: 'srv-m-wash-iron', label: 'Wash & Iron', icon: '✨', startingPrice: '₹45' },
+    { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔', startingPrice: '₹80' },
+    { id: 'PER_KG', label: 'By Weight (KG)', icon: '⚖️', startingPrice: '₹60/KG' },
+  ];
+
   const catalogItems = useMemo(
     () =>
       clothTypes
@@ -260,8 +273,8 @@ function BookingWizardContent() {
         .filter((cloth) => `${cloth.name} ${cloth.categoryLabel}`.toLowerCase().includes(query.trim().toLowerCase()))
         .map((cloth) => {
           let prices = priceMatrix.filter((price) => price.clothTypeId === cloth.id && price.isActive);
-          if (serviceFilter !== 'ALL') {
-            prices = prices.filter((p) => p.serviceId === serviceFilter);
+          if (activeServiceTab !== 'ALL' && activeServiceTab !== 'PER_KG') {
+            prices = prices.filter((p) => p.serviceId === activeServiceTab);
           }
           return {
             cloth,
@@ -269,7 +282,7 @@ function BookingWizardContent() {
           };
         })
         .filter((item) => item.prices.length > 0),
-    [category, clothTypes, priceMatrix, query, serviceFilter]
+    [activeServiceTab, category, clothTypes, priceMatrix, query]
   );
 
   // Default Standard Slot Template
@@ -310,7 +323,6 @@ function BookingWizardContent() {
     return dates;
   }, [slotCapacities]);
 
-  // Automatically select the first date that has active upcoming slots
   useEffect(() => {
     const firstValidDate = pickupDates.find((p) => p.hasAvailableSlots)?.date || pickupDates[0]?.date;
     if (firstValidDate && (!selectedPickupDate || !pickupDates.some((p) => p.date === selectedPickupDate && p.hasAvailableSlots))) {
@@ -320,7 +332,6 @@ function BookingWizardContent() {
 
   const activePickupDate = selectedPickupDate || pickupDates[0]?.date || new Date().toISOString().slice(0, 10);
 
-  // Available slots for the chosen pickup date with past detection
   const availableSlots = useMemo(() => {
     const rawSlots = slotCapacities.filter(
       (slot) => slot.isActive && slot.date === activePickupDate
@@ -353,7 +364,6 @@ function BookingWizardContent() {
     });
   }, [activePickupDate, slotCapacities]);
 
-  // Select the first valid, non-past slot
   useEffect(() => {
     const activeSlots = availableSlots.filter((s) => !s.isPast);
     if (activeSlots.length > 0) {
@@ -382,8 +392,6 @@ function BookingWizardContent() {
     const price = priceMatrix.find((item) => item.clothTypeId === clothId && item.serviceId === serviceId && item.isActive);
     if (!cloth || !price) return;
     addClothItemToCart(cloth, price, 1);
-    setJustAddedClothId(`${clothId}-${serviceId}`);
-    setTimeout(() => setJustAddedClothId(null), 1500);
   };
 
   const handleAddBulkToBag = () => {
@@ -491,7 +499,7 @@ function BookingWizardContent() {
       return;
     }
     if (!isLoggedIn) {
-      showToast('🔒 Please sign in with your mobile number to proceed with booking & schedule doorstep pickup.', 'info');
+      showToast('🔒 Please sign in with your mobile number to schedule doorstep pickup.', 'info');
       router.push('/login?redirect=/book&step=2');
       return;
     }
@@ -660,10 +668,10 @@ function BookingWizardContent() {
     <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-32 w-full">
-        {/* ── STEP BREADCRUMB INDICATOR (Sleek & Clean) ── */}
-        <div className="mb-5 bg-white rounded-2xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs">
-          <div className="flex items-center justify-between gap-2 max-w-2xl mx-auto">
+      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-32 w-full">
+        {/* ── SLEEK STEP INDICATOR ── */}
+        <div className="mb-4 bg-white rounded-2xl p-2.5 sm:p-3.5 border border-[#E8DDE1] shadow-2xs">
+          <div className="flex items-center justify-between gap-1 sm:gap-2 max-w-2xl mx-auto">
             {steps.map((s, idx) => {
               const isActive = idx === step;
               const isCompleted = idx < step;
@@ -672,31 +680,28 @@ function BookingWizardContent() {
                   key={s.num}
                   type="button"
                   onClick={() => idx <= step && setStep(idx)}
-                  className={`flex items-center gap-2 sm:gap-3 transition-all ${
+                  className={`flex items-center gap-1.5 sm:gap-3 transition-all ${
                     idx <= step ? 'cursor-pointer' : 'cursor-default opacity-50'
                   }`}
                 >
                   <div
-                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-all ${
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-all ${
                       isActive
-                        ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/30 scale-105 ring-2 ring-[#5B214F]/20'
+                        ? 'bg-[#5B214F] text-white shadow-xs scale-105'
                         : isCompleted
                         ? 'bg-emerald-500 text-white'
                         : 'bg-[#F7F0F2] text-[#9A8D94]'
                     }`}
                   >
-                    {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : s.num}
+                    {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : s.num}
                   </div>
                   <div className="text-left">
-                    <p className={`text-xs sm:text-sm font-extrabold leading-tight ${isActive ? 'text-[#5B214F]' : 'text-[#2B1326]'}`}>
+                    <p className={`text-xs font-extrabold leading-tight ${isActive ? 'text-[#5B214F]' : 'text-[#2B1326]'}`}>
                       {s.title}
-                    </p>
-                    <p className="text-[10px] text-[#6F626A] font-medium hidden sm:block">
-                      {s.desc}
                     </p>
                   </div>
                   {idx < steps.length - 1 && (
-                    <div className="w-6 sm:w-12 h-0.5 bg-[#E8DDE1] ml-2 hidden sm:block" />
+                    <div className="w-4 sm:w-10 h-0.5 bg-[#E8DDE1] ml-1 sm:ml-2" />
                   )}
                 </button>
               );
@@ -705,256 +710,210 @@ function BookingWizardContent() {
         </div>
 
         {/* ─────────────────────────────────────────────────────
-            STEP 1: CHOOSE ITEMS (GARMENTS & BULK WASH)
+            STEP 1: CHOOSE ITEMS & SERVICES
         ───────────────────────────────────────────────────── */}
         {step === 0 && (
-          <section className={`grid gap-6 transition-all duration-300 ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-5xl mx-auto'}`}>
+          <section className={`grid gap-5 transition-all duration-300 ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-5xl mx-auto'}`}>
             <div className="space-y-4">
               
-              {/* 1. Mode Segmented Switcher (Garment vs Weight) */}
-              <div className="bg-white rounded-2xl p-1.5 border border-[#E8DDE1] shadow-2xs grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setActiveCatalogMode('GARMENTS')}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    activeCatalogMode === 'GARMENTS'
-                      ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/25'
-                      : 'bg-transparent text-[#6F626A] hover:text-[#2B1326] hover:bg-[#F7F0F2]'
-                  }`}
-                >
-                  <Shirt className="w-4 h-4" />
-                  <span>By Garment</span>
-                </button>
+              {/* 1. Service Ribbon & Search Bar */}
+              <div className="bg-white rounded-3xl p-3.5 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-3">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-[#9A8D94]" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search shirts, jeans, sarees, suits, bedsheets..."
+                    className="w-full pl-10 pr-9 py-2 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] focus:bg-white focus:outline-none focus:border-[#5B214F] text-xs font-bold text-[#2B1326] transition"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery('')}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveCatalogMode('PER_KG')}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    activeCatalogMode === 'PER_KG'
-                      ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/25'
-                      : 'bg-transparent text-[#6F626A] hover:text-[#2B1326] hover:bg-[#F7F0F2]'
-                  }`}
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>By Weight (KG)</span>
-                </button>
+                {/* Primary Service Filter Tabs (Swiggy / Blinkit Style) */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  {serviceTabs.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setActiveServiceTab(s.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                        activeServiceTab === s.id
+                          ? 'bg-[#5B214F] text-white shadow-md shadow-[#5B214F]/25 ring-2 ring-[#5B214F]/20'
+                          : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2]'
+                      }`}
+                    >
+                      <span>{s.icon}</span>
+                      <span>{s.label}</span>
+                      {s.startingPrice && activeServiceTab !== s.id && (
+                        <span className="text-[10px] text-[#B76E79] font-bold">({s.startingPrice})</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Category Ribbon (Visible when in Garment mode) */}
+                {activeServiceTab !== 'PER_KG' && (
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar border-t border-[#F2EAEF] pt-2.5">
+                    {categories.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setCategory(item.key)}
+                        className={`whitespace-nowrap rounded-xl px-2.5 py-1 text-[11px] font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                          category === item.key
+                            ? 'bg-[#2B1326] text-[#D6B36A] shadow-xs'
+                            : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2]'
+                        }`}
+                      >
+                        <span>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* MODE 1: BY GARMENT ATELIER */}
-              {activeCatalogMode === 'GARMENTS' && (
-                <div className="space-y-4">
-                  {/* Search Bar + Filters Card */}
-                  <div className="bg-white rounded-3xl p-4 border border-[#E8DDE1] shadow-2xs space-y-3">
-                    {/* Search Input */}
-                    <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3.5 top-3 text-[#9A8D94]" />
-                      <input
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search shirts, jeans, sarees, suits, bedsheets..."
-                        className="w-full pl-10 pr-9 py-2 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] focus:bg-white focus:outline-none focus:border-[#5B214F] text-xs font-bold text-[#2B1326] transition"
-                      />
-                      {query && (
-                        <button
-                          type="button"
-                          onClick={() => setQuery('')}
-                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+              {/* MODE 1: GARMENTS CATALOG */}
+              {activeServiceTab !== 'PER_KG' && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {catalogItems.map(({ cloth, prices }) => {
+                    const itemsInBag = cart.items.filter((i) => i.id?.startsWith(`${cloth.id}-`));
+                    const totalQtyInBag = itemsInBag.reduce((sum, item) => sum + item.quantity, 0);
+                    const minPrice = Math.min(...prices.map((p) => p.price));
 
-                    {/* Quick Service Filter Tabs */}
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                      {[
-                        { id: 'ALL', label: 'All Services', icon: '✨' },
-                        { id: 'srv-m-steam-press', label: 'Steam Press', icon: '💨' },
-                        { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺' },
-                        { id: 'srv-m-wash-iron', label: 'Wash & Iron', icon: '✨' },
-                        { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔' },
-                      ].map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setServiceFilter(s.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                            serviceFilter === s.id
-                              ? 'bg-[#2B1326] text-[#D6B36A] shadow-xs'
-                              : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2]'
-                          }`}
-                        >
-                          <span>{s.icon}</span>
-                          <span>{s.label}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Category Ribbon */}
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar border-t border-[#F2EAEF] pt-2.5">
-                      {categories.map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => setCategory(item.key)}
-                          className={`whitespace-nowrap rounded-xl px-3 py-1 text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
-                            category === item.key
-                              ? 'bg-[#5B214F] text-white shadow-xs'
-                              : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2]'
-                          }`}
-                        >
-                          <span>{item.icon}</span>
-                          <span>{item.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Garments Responsive Grid */}
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {catalogItems.map(({ cloth, prices }) => {
-                      const itemsInBag = cart.items.filter((i) => i.id?.startsWith(`${cloth.id}-`));
-                      const totalQtyInBag = itemsInBag.reduce((sum, item) => sum + item.quantity, 0);
-                      const minPrice = Math.min(...prices.map((p) => p.price));
-
-                      return (
-                        <div
-                          key={cloth.id}
-                          className="rounded-3xl border border-[#E8DDE1] bg-white p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-                        >
-                          <div>
-                            {/* Garment Header Card */}
-                            <div className="flex items-center gap-3 mb-3">
-                              <GarmentImage
-                                name={cloth.name}
-                                icon={cloth.icon}
-                                imageUrl={cloth.imageUrl}
-                                categoryTag={cloth.categoryTag}
-                                size="md"
-                                className="w-12 h-12 rounded-2xl shadow-2xs shrink-0 border border-[#E8DDE1]"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <h3 className="font-extrabold text-sm sm:text-base text-[#2B1326] leading-tight font-poppins truncate">
-                                    {cloth.name}
-                                  </h3>
-                                  {totalQtyInBag > 0 ? (
-                                    <span className="text-[10px] font-black text-[#5B214F] bg-[#F7F0F2] border border-[#5B214F]/30 px-2 py-0.5 rounded-full shrink-0">
-                                      ✓ {totalQtyInBag} in Bag
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] font-extrabold text-[#B76E79] bg-[#FCF9F7] px-2 py-0.5 rounded-full border border-[#E8DDE1] shrink-0">
-                                      From ₹{minPrice}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-[#6F626A] font-medium truncate mt-0.5">
-                                  {cloth.description || `${cloth.categoryLabel}`}
-                                </p>
+                    return (
+                      <div
+                        key={cloth.id}
+                        className="rounded-3xl border border-[#E8DDE1] bg-white p-3.5 sm:p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+                      >
+                        <div>
+                          {/* Garment Header Card */}
+                          <div className="flex items-center gap-3 mb-2.5">
+                            <GarmentImage
+                              name={cloth.name}
+                              icon={cloth.icon}
+                              imageUrl={cloth.imageUrl}
+                              categoryTag={cloth.categoryTag}
+                              size="md"
+                              className="w-11 h-11 rounded-2xl shadow-2xs shrink-0 border border-[#E8DDE1]"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-extrabold text-sm sm:text-base text-[#2B1326] leading-tight font-poppins truncate">
+                                  {cloth.name}
+                                </h3>
+                                {totalQtyInBag > 0 ? (
+                                  <span className="text-[10px] font-black text-[#5B214F] bg-[#F7F0F2] border border-[#5B214F]/30 px-2 py-0.5 rounded-full shrink-0">
+                                    ✓ {totalQtyInBag} in Bag
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-extrabold text-[#B76E79] bg-[#FCF9F7] px-2 py-0.5 rounded-full border border-[#E8DDE1] shrink-0">
+                                    From ₹{minPrice}
+                                  </span>
+                                )}
                               </div>
-                            </div>
-
-                            {/* Service Compact Rows */}
-                            <div className="space-y-1.5 pt-2 border-t border-[#F2EAEF]">
-                              {prices.map((price) => {
-                                const itemKey = `${cloth.id}-${price.serviceId}`;
-                                const cartItem = cart.items.find((i) => i.id === itemKey);
-                                const qty = cartItem ? cartItem.quantity : 0;
-                                const badge = getServiceBadge(price.serviceName);
-
-                                return (
-                                  <div
-                                    key={price.id}
-                                    className={`px-3 py-2 rounded-xl border transition-all flex items-center justify-between gap-2 ${
-                                      qty > 0
-                                        ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/20'
-                                        : 'bg-[#FCF9F7] border-[#E8DDE1] hover:border-[#5B214F]/40 hover:bg-white'
-                                    }`}
-                                  >
-                                    <div className="min-w-0 flex-1 flex items-center gap-2">
-                                      <span className="text-xs">{badge.icon}</span>
-                                      <span className="font-extrabold text-xs text-[#2B1326] truncate">
-                                        {price.serviceName}
-                                      </span>
-                                      <span className="text-[10px] text-[#9A8D94] font-medium hidden sm:inline">
-                                        · {price.turnaroundHours}h
-                                      </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 shrink-0">
-                                      <span className="text-xs font-black text-[#5B214F]">
-                                        ₹{price.price}
-                                      </span>
-
-                                      {/* Add or Stepper Button */}
-                                      {qty > 0 ? (
-                                        <div className="flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-2xs">
-                                          <button
-                                            type="button"
-                                            onClick={() => updateCartQuantity(itemKey, qty - 1)}
-                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
-                                            title="Decrease"
-                                          >
-                                            <Minus className="w-3 h-3 stroke-[2.5]" />
-                                          </button>
-                                          <span className="w-5 text-center font-black text-xs text-white">
-                                            {qty}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => updateCartQuantity(itemKey, qty + 1)}
-                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
-                                            title="Increase"
-                                          >
-                                            <Plus className="w-3 h-3 stroke-[2.5]" />
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleAddGarment(cloth.id, price.serviceId)}
-                                          className="flex items-center gap-1 px-3 py-1 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs shadow-2xs transition active:scale-95 cursor-pointer"
-                                        >
-                                          <Plus className="w-3 h-3 text-[#D6B36A] stroke-[3]" />
-                                          <span>ADD</span>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              <p className="text-[11px] text-[#6F626A] font-medium truncate mt-0.5">
+                                {cloth.description || `${cloth.categoryLabel}`}
+                              </p>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
 
-                  {!catalogItems.length && (
-                    <div className="py-16 text-center bg-white rounded-3xl border border-dashed border-[#E8DDE1] space-y-2">
-                      <p className="text-sm font-bold text-[#6F626A]">No matching garments found for &ldquo;{query}&rdquo;</p>
-                      <button
-                        type="button"
-                        onClick={() => { setQuery(''); setCategory('ALL'); setServiceFilter('ALL'); }}
-                        className="text-xs font-extrabold text-[#5B214F] underline cursor-pointer"
-                      >
-                        Reset filters
-                      </button>
-                    </div>
-                  )}
+                          {/* Services List inside Garment Card */}
+                          <div className="space-y-1.5 pt-2 border-t border-[#F2EAEF]">
+                            {prices.map((price) => {
+                              const itemKey = `${cloth.id}-${price.serviceId}`;
+                              const cartItem = cart.items.find((i) => i.id === itemKey);
+                              const qty = cartItem ? cartItem.quantity : 0;
+                              const badge = getServiceBadge(price.serviceName);
+
+                              return (
+                                <div
+                                  key={price.id}
+                                  className={`px-2.5 py-1.5 rounded-xl border transition-all flex items-center justify-between gap-2 ${
+                                    qty > 0
+                                      ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/20'
+                                      : 'bg-[#FCF9F7] border-[#E8DDE1] hover:border-[#5B214F]/40 hover:bg-white'
+                                  }`}
+                                >
+                                  <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                                    <span className="text-xs">{badge.icon}</span>
+                                    <span className="font-extrabold text-xs text-[#2B1326] truncate">
+                                      {badge.label}
+                                    </span>
+                                    <span className="text-[10px] text-[#9A8D94] font-medium hidden sm:inline">
+                                      · {price.turnaroundHours}h
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2.5 shrink-0">
+                                    <span className="text-xs font-black text-[#5B214F]">
+                                      ₹{price.price}
+                                    </span>
+
+                                    {/* Add / Stepper Button */}
+                                    {qty > 0 ? (
+                                      <div className="flex items-center rounded-lg bg-[#5B214F] text-white p-0.5 shadow-2xs">
+                                        <button
+                                          type="button"
+                                          onClick={() => updateCartQuantity(itemKey, qty - 1)}
+                                          className="w-5 h-5 rounded-md flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                          title="Decrease"
+                                        >
+                                          <Minus className="w-3 h-3 stroke-[2.5]" />
+                                        </button>
+                                        <span className="w-4 text-center font-black text-xs text-white">
+                                          {qty}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => updateCartQuantity(itemKey, qty + 1)}
+                                          className="w-5 h-5 rounded-md flex items-center justify-center text-white hover:bg-black/20 transition cursor-pointer"
+                                          title="Increase"
+                                        >
+                                          <Plus className="w-3 h-3 stroke-[2.5]" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddGarment(cloth.id, price.serviceId)}
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-[11px] shadow-2xs transition active:scale-95 cursor-pointer"
+                                      >
+                                        <Plus className="w-2.5 h-2.5 text-[#D6B36A] stroke-[3]" />
+                                        <span>ADD</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {/* MODE 2: BY WEIGHT (PER-KG BULK) */}
-              {activeCatalogMode === 'PER_KG' && (
-                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-6 sm:p-8 space-y-6 shadow-2xs">
+              {activeServiceTab === 'PER_KG' && (
+                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-5 sm:p-7 space-y-5 shadow-2xs">
                   <div className="space-y-1">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F0F2] text-[#5B214F] text-[10px] font-extrabold uppercase tracking-widest border border-[#E8DDE1]">
                       <Scale className="w-3 h-3 text-[#D6B36A]" />
                       <span>ECONOMY PER-KG WASHING</span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-black text-[#2B1326] font-poppins">
+                    <h2 className="text-xl font-black text-[#2B1326] font-poppins">
                       Bulk Laundry by Weight
                     </h2>
                     <p className="text-xs text-[#6F626A] font-medium">
@@ -1028,7 +987,7 @@ function BookingWizardContent() {
               )}
             </div>
 
-            {/* ── RIGHT: LIVE LUXURY BAG SUMMARY (Desktop) ── */}
+            {/* ── RIGHT: LIVE BAG SUMMARY (Desktop) ── */}
             {hasItems && (
               <aside className="h-fit rounded-3xl border border-[#E8DDE1] bg-white p-5 sm:p-6 shadow-sm lg:sticky lg:top-28 space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="flex items-center justify-between pb-3 border-b border-[#E8DDE1]">
