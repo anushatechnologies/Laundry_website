@@ -250,11 +250,11 @@ function BookingWizardContent() {
 
   // Defined Service Tabs (The Clean Horizontal Pill Model)
   const serviceTabs = [
-    { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔', desc: 'Silks & Suits' },
-    { id: 'srv-m-steam-press', label: 'Steam Press', icon: '💨', desc: 'Wrinkle-Free' },
-    { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺', desc: 'Everyday Casual' },
-    { id: 'srv-m-wash-iron', label: 'Wash & Iron', icon: '✨', desc: 'Sanitized & Pressed' },
-    { id: 'PER_KG', label: 'By Weight (KG)', icon: '⚖️', desc: 'Bulk Wash' },
+    { id: 'srv-m-dry-clean', label: 'Dry Cleaning', icon: '👔' },
+    { id: 'srv-m-steam-press', label: 'Steam Press', icon: '💨' },
+    { id: 'srv-m-wash-fold', label: 'Wash & Fold', icon: '🧺' },
+    { id: 'srv-m-wash-iron', label: 'Wash & Iron', icon: '✨' },
+    { id: 'PER_KG', label: 'By Weight (KG)', icon: '⚖️' },
   ];
 
   const categories = useMemo(() => {
@@ -658,12 +658,12 @@ function BookingWizardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col font-sans overflow-x-hidden w-full">
+    <div className="min-h-screen bg-[#FCF9F7] text-[#2B1326] flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-32 w-full overflow-x-hidden">
+      <main className="flex-1 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 pb-32 w-full max-w-full overflow-x-hidden">
         {/* ── CLEAN STEP WIZARD BAR ── */}
-        <div className="mb-4 bg-white rounded-2xl p-2.5 sm:p-3.5 border border-[#E8DDE1] shadow-2xs w-full">
+        <div className="mb-3.5 bg-white rounded-2xl p-2.5 sm:p-3.5 border border-[#E8DDE1] shadow-2xs w-full">
           <div className="flex items-center justify-between gap-1 sm:gap-2 max-w-xl mx-auto">
             {steps.map((s, idx) => {
               const isActive = idx === step;
@@ -704,22 +704,22 @@ function BookingWizardContent() {
             STEP 1: CHOOSE SERVICE & GARMENTS (CLEAN & FAST)
         ───────────────────────────────────────────────────── */}
         {step === 0 && (
-          <section className={`grid gap-5 transition-all duration-300 w-full ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-4xl mx-auto'}`}>
-            <div className="space-y-3.5 w-full">
+          <section className={`grid gap-4 transition-all duration-300 w-full max-w-full ${hasItems ? 'lg:grid-cols-[1fr_360px]' : 'max-w-4xl mx-auto'}`}>
+            <div className="space-y-3 w-full max-w-full">
               
               {/* Horizontal Scrollable Service Filter Ribbon (Clean Single Row) */}
-              <div className="bg-white rounded-3xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-3 w-full">
+              <div className="bg-white rounded-3xl p-3 sm:p-4 border border-[#E8DDE1] shadow-2xs space-y-2.5 w-full max-w-full">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#5B214F] flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-[#D6B36A]" />
-                    <span>Select Service:</span>
+                    <span>Choose Service:</span>
                   </span>
                   <span className="text-[11px] text-[#6F626A] font-medium hidden sm:inline">
-                    Tap a service to view &amp; add garments
+                    Tap to filter items
                   </span>
                 </div>
 
-                {/* Horizontal Scrollable Service Tabs (NO STACKING) */}
+                {/* Horizontal Scrollable Service Tabs (Single Sleek Row) */}
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full">
                   {serviceTabs.map((s) => {
                     const isSelected = selectedServiceId === s.id;
@@ -728,19 +728,17 @@ function BookingWizardContent() {
                         key={s.id}
                         type="button"
                         onClick={() => setSelectedServiceId(s.id)}
-                        className={`px-3.5 py-2 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                        className={`px-3 py-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                           isSelected
-                            ? 'bg-[#5B214F] text-white border-[#5B214F] shadow-md shadow-[#5B214F]/25 ring-2 ring-[#5B214F]/20'
-                            : 'bg-[#FCF9F7] text-[#2B1326] border-[#E8DDE1] hover:border-[#5B214F]/40 hover:bg-white'
+                            ? 'bg-[#5B214F] text-white border-[#5B214F] shadow-sm ring-1 ring-[#5B214F]/30 font-bold'
+                            : 'bg-[#FCF9F7] text-[#2B1326] border-[#E8DDE1] hover:border-[#5B214F]/40 hover:bg-white font-semibold'
                         }`}
                       >
-                        <span className="text-base">{s.icon}</span>
-                        <div className="text-left">
-                          <span className={`text-xs font-black block leading-tight whitespace-nowrap ${isSelected ? 'text-white' : 'text-[#2B1326]'}`}>
-                            {s.label}
-                          </span>
-                        </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#D6B36A] stroke-[3] ml-0.5" />}
+                        <span className="text-sm">{s.icon}</span>
+                        <span className={`text-xs whitespace-nowrap ${isSelected ? 'text-white' : 'text-[#2B1326]'}`}>
+                          {s.label}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 text-[#D6B36A] stroke-[3]" />}
                       </button>
                     );
                   })}
@@ -750,32 +748,32 @@ function BookingWizardContent() {
                 {selectedServiceId !== 'PER_KG' && (
                   <div className="space-y-2 pt-2 border-t border-[#F2EAEF] w-full">
                     <div className="relative w-full">
-                      <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-[#9A8D94]" />
+                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#9A8D94]" />
                       <input
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search shirts, jeans, sarees, suits, bedsheets..."
-                        className="w-full pl-10 pr-9 py-2 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] focus:bg-white focus:outline-none focus:border-[#5B214F] text-xs font-bold text-[#2B1326] transition"
+                        placeholder="Search shirts, sarees, suits, jeans, bedsheets..."
+                        className="w-full pl-9 pr-8 py-2 rounded-xl border border-[#E8DDE1] bg-[#FCF9F7] focus:bg-white focus:outline-none focus:border-[#5B214F] text-xs font-bold text-[#2B1326] transition"
                       />
                       {query && (
                         <button
                           type="button"
                           onClick={() => setQuery('')}
-                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
 
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar w-full">
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar w-full">
                       {categories.map((item) => (
                         <button
                           key={item.key}
                           type="button"
                           onClick={() => setCategory(item.key)}
-                          className={`whitespace-nowrap rounded-xl px-2.5 py-1 text-[11px] font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                          className={`whitespace-nowrap rounded-xl px-2.5 py-1 text-[11px] font-extrabold transition cursor-pointer flex items-center gap-1 shrink-0 ${
                             category === item.key
                               ? 'bg-[#2B1326] text-[#D6B36A] shadow-xs'
                               : 'bg-[#FCF9F7] text-[#6F626A] border border-[#E8DDE1] hover:bg-[#F7F0F2]'
@@ -790,14 +788,14 @@ function BookingWizardContent() {
                 )}
               </div>
 
-              {/* 2. THE CLEAN GARMENT CATALOG (Single Row with BOLD VISIBLE + / - BUTTONS) */}
+              {/* 2. THE CLEAN GARMENT CATALOG (Single Row with BOLD ALWAYS-VISIBLE + / - BUTTONS) */}
               {selectedServiceId !== 'PER_KG' && (
-                <div className="space-y-2.5 w-full">
-                  <div className="flex items-center justify-between px-1 text-xs text-[#6F626A] font-bold">
+                <div className="space-y-2 w-full max-w-full">
+                  <div className="flex items-center justify-between px-1 text-[11px] text-[#6F626A] font-bold">
                     <span>{activeGarments.length} Items for {serviceTabs.find((s) => s.id === selectedServiceId)?.label}</span>
                   </div>
 
-                  <div className="grid gap-2.5 sm:grid-cols-2 w-full">
+                  <div className="grid gap-2 sm:grid-cols-2 w-full max-w-full">
                     {activeGarments.map(({ cloth, price }) => {
                       if (!price) return null;
                       const itemKey = `${cloth.id}-${price.serviceId}`;
@@ -807,7 +805,7 @@ function BookingWizardContent() {
                       return (
                         <div
                           key={cloth.id}
-                          className={`w-full rounded-2xl border p-3 transition-all flex items-center justify-between gap-2 shadow-2xs ${
+                          className={`w-full max-w-full rounded-2xl border p-2.5 sm:p-3 transition-all flex items-center justify-between gap-2 shadow-2xs ${
                             qty > 0
                               ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/25'
                               : 'bg-white border-[#E8DDE1] hover:border-[#5B214F]/40'
@@ -821,7 +819,7 @@ function BookingWizardContent() {
                               imageUrl={cloth.imageUrl}
                               categoryTag={cloth.categoryTag}
                               size="md"
-                              className="w-12 h-12 rounded-xl shadow-2xs shrink-0 border border-[#E8DDE1]"
+                              className="w-11 h-11 rounded-xl shadow-2xs shrink-0 border border-[#E8DDE1]"
                             />
                             <div className="min-w-0 flex-1 overflow-hidden pr-1">
                               <h3 className="font-extrabold text-xs sm:text-sm text-[#2B1326] leading-tight truncate">
@@ -831,7 +829,7 @@ function BookingWizardContent() {
                                 {cloth.description || cloth.categoryLabel}
                               </p>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-sm font-black text-[#5B214F]">
+                                <span className="text-xs sm:text-sm font-black text-[#5B214F]">
                                   ₹{price.price}
                                 </span>
                                 <span className="text-[9px] text-[#9A8D94] font-medium">
@@ -841,10 +839,10 @@ function BookingWizardContent() {
                             </div>
                           </div>
 
-                          {/* Right: GUARANTEED VISIBLE + / - STEPPER BUTTON */}
-                          <div className="shrink-0 flex items-center justify-end">
+                          {/* Right: + ADD / - 1 + BUTTON (Guaranteed fixed-width and never cut off) */}
+                          <div className="shrink-0 flex items-center justify-end pl-1">
                             {qty > 0 ? (
-                              <div className="inline-flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-md">
+                              <div className="inline-flex items-center rounded-xl bg-[#5B214F] text-white p-0.5 shadow-sm">
                                 <button
                                   type="button"
                                   onClick={() => updateCartQuantity(itemKey, qty - 1)}
@@ -853,7 +851,7 @@ function BookingWizardContent() {
                                 >
                                   −
                                 </button>
-                                <span className="w-6 text-center font-black text-xs text-white">
+                                <span className="w-5 text-center font-black text-xs text-white">
                                   {qty}
                                 </span>
                                 <button
@@ -869,7 +867,7 @@ function BookingWizardContent() {
                               <button
                                 type="button"
                                 onClick={() => handleAddGarment(cloth.id, price.serviceId)}
-                                className="px-3.5 py-2 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs shadow-md shadow-[#5B214F]/25 flex items-center gap-1 active:scale-95 transition cursor-pointer"
+                                className="px-3.5 py-1.5 rounded-xl bg-[#5B214F] hover:bg-[#48193F] text-white font-black text-xs shadow-sm flex items-center gap-1 active:scale-95 transition cursor-pointer"
                               >
                                 <span className="text-sm font-black text-[#D6B36A] leading-none">+</span>
                                 <span>ADD</span>
@@ -898,13 +896,13 @@ function BookingWizardContent() {
 
               {/* 3. BULK WASH BY WEIGHT (PER-KG) */}
               {selectedServiceId === 'PER_KG' && (
-                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-5 sm:p-7 space-y-5 shadow-2xs w-full">
+                <div className="bg-white rounded-3xl border border-[#E8DDE1] p-4 sm:p-6 space-y-4 shadow-2xs w-full">
                   <div className="space-y-1">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F0F2] text-[#5B214F] text-[10px] font-extrabold uppercase tracking-widest border border-[#E8DDE1]">
                       <Scale className="w-3 h-3 text-[#D6B36A]" />
                       <span>ECONOMY PER-KG WASHING</span>
                     </div>
-                    <h2 className="text-xl font-black text-[#2B1326] font-poppins">
+                    <h2 className="text-lg sm:text-xl font-black text-[#2B1326] font-poppins">
                       Bulk Laundry by Weight
                     </h2>
                     <p className="text-xs text-[#6F626A] font-medium">
@@ -913,40 +911,40 @@ function BookingWizardContent() {
                   </div>
 
                   {/* Service Tier Selection */}
-                  <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="grid sm:grid-cols-2 gap-2.5">
                     {serviceMasters
                       .filter((s) => s.pricingType === 'PER_KG')
                       .map((srv) => (
                         <div
                           key={srv.id}
                           onClick={() => setSelectedBulkServiceId(srv.id)}
-                          className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+                          className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
                             selectedBulkServiceId === srv.id
-                              ? 'bg-[#F7F0F2] border-[#5B214F] ring-2 ring-[#5B214F]/20 shadow-xs'
+                              ? 'bg-[#F7F0F2] border-[#5B214F] ring-1 ring-[#5B214F]/30 shadow-xs'
                               : 'bg-[#FCF9F7] border-[#E8DDE1] hover:bg-white hover:border-[#5B214F]/40'
                           }`}
                         >
                           <div>
                             <div className="flex justify-between items-center mb-1">
-                              <span className="font-extrabold text-sm text-[#2B1326]">{srv.name}</span>
-                              <span className="font-black text-sm text-[#5B214F]">₹{srv.baseKgPrice}/KG</span>
+                              <span className="font-extrabold text-xs sm:text-sm text-[#2B1326]">{srv.name}</span>
+                              <span className="font-black text-xs sm:text-sm text-[#5B214F]">₹{srv.baseKgPrice}/KG</span>
                             </div>
-                            <p className="text-xs text-[#6F626A] mt-1">{srv.description}</p>
+                            <p className="text-[11px] text-[#6F626A] mt-0.5">{srv.description}</p>
                           </div>
-                          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[#E8DDE1] text-[11px] font-bold text-[#6F626A]">
-                            <Clock className="w-3.5 h-3.5 text-[#5B214F]" />
-                            <span>{srv.turnaroundHours}h Standard Turnaround</span>
+                          <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-[#E8DDE1] text-[10px] font-bold text-[#6F626A]">
+                            <Clock className="w-3 h-3 text-[#5B214F]" />
+                            <span>{srv.turnaroundHours}h Turnaround</span>
                           </div>
                         </div>
                       ))}
                   </div>
 
                   {/* Weight Slider Box */}
-                  <div className="p-5 bg-[#FCF9F7] rounded-2xl border border-[#E8DDE1] space-y-4">
+                  <div className="p-4 bg-[#FCF9F7] rounded-2xl border border-[#E8DDE1] space-y-3">
                     <div className="flex justify-between items-center text-xs font-bold text-[#2B1326]">
                       <span>Select Laundry Weight:</span>
-                      <span className="text-base font-black text-[#5B214F] font-poppins">
-                        {bulkKgWeight} KG <span className="text-xs text-[#6F626A] font-medium">(~{bulkKgWeight * 4} items)</span>
+                      <span className="text-sm font-black text-[#5B214F] font-poppins">
+                        {bulkKgWeight} KG <span className="text-[10px] text-[#6F626A] font-medium">(~{bulkKgWeight * 4} items)</span>
                       </span>
                     </div>
 
@@ -959,8 +957,8 @@ function BookingWizardContent() {
                       className="w-full accent-[#5B214F] h-2 bg-[#E8DDE1] rounded-lg cursor-pointer"
                     />
 
-                    <div className="flex justify-between text-[11px] font-bold text-[#9A8D94]">
-                      <span>3 KG (Minimum)</span>
+                    <div className="flex justify-between text-[10px] font-bold text-[#9A8D94]">
+                      <span>3 KG (Min)</span>
                       <span>10 KG</span>
                       <span>25 KG</span>
                     </div>
@@ -969,7 +967,7 @@ function BookingWizardContent() {
                   <button
                     type="button"
                     onClick={handleAddBulkToBag}
-                    className="w-full py-4 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-2xl font-extrabold text-sm shadow-md shadow-[#5B214F]/25 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                    className="w-full py-3.5 bg-[#5B214F] hover:bg-[#48193F] text-white rounded-2xl font-extrabold text-xs sm:text-sm shadow-md shadow-[#5B214F]/25 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
                   >
                     <span>Add {bulkKgWeight} KG to Bag (₹{(serviceMasters.find((s) => s.id === selectedBulkServiceId)?.baseKgPrice || 60) * bulkKgWeight})</span>
                     <ArrowRight className="w-4 h-4 text-[#D6B36A]" />

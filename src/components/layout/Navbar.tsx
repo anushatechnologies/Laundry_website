@@ -126,33 +126,31 @@ export const Navbar: React.FC = () => {
       {isAnnouncementVisible && (
         <div
           ref={announcementRef}
-          className="bg-[#2B1326] text-white text-[11px] sm:text-xs py-2 px-4 sm:px-8 flex items-center justify-between font-medium relative z-50 border-b border-white/10"
+          className="bg-[#2B1326] text-white text-[10px] sm:text-xs py-1.5 px-3 sm:px-8 flex items-center justify-between font-medium relative z-50 border-b border-white/10 w-full overflow-hidden"
         >
-          <div className="w-6 hidden sm:block"></div>
-
-          <div className="flex items-center justify-center gap-2 sm:gap-3 text-center mx-auto">
-            <span>
-              ✨ <strong className="text-white font-bold tracking-wide">FIRST ORDER OFFER</strong> — Save{' '}
-              <strong className="text-[#D6B36A] font-extrabold">₹100</strong> with code:{' '}
-              <code className="bg-white/10 border border-[#D6B36A]/40 px-1.5 py-0.5 rounded font-mono font-bold text-[#D6B36A] text-xs">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-3 text-center mx-auto truncate min-w-0">
+            <span className="truncate">
+              ✨ <strong className="text-white font-bold tracking-wide">FIRST ORDER</strong> — Save{' '}
+              <strong className="text-[#D6B36A] font-extrabold">₹100</strong> with:{' '}
+              <code className="bg-white/10 border border-[#D6B36A]/40 px-1 py-0.5 rounded font-mono font-bold text-[#D6B36A] text-[10px] sm:text-xs">
                 WELCOME100
               </code>
             </span>
             <button
               onClick={handleCopyCode}
-              className="bg-white/10 hover:bg-white/20 border border-white/20 text-[#D6B36A] hover:text-white px-2.5 py-0.5 rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+              className="bg-white/10 hover:bg-white/20 border border-white/20 text-[#D6B36A] hover:text-white px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
             >
-              {copiedCode ? <Check className="w-3 h-3 text-[#3F8F6B]" /> : <Copy className="w-3 h-3" />}
+              {copiedCode ? <Check className="w-2.5 h-2.5 text-[#3F8F6B]" /> : <Copy className="w-2.5 h-2.5" />}
               <span>{copiedCode ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
 
           <button
             onClick={() => setIsAnnouncementVisible(false)}
-            className="text-white/60 hover:text-white transition-colors p-1 cursor-pointer"
+            className="text-white/60 hover:text-white transition-colors p-1 cursor-pointer shrink-0 ml-1"
             title="Dismiss Announcement"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
         </div>
       )}
