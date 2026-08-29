@@ -606,6 +606,9 @@ function BookingWizardContent() {
           prefill: {
             name: checkoutDetails.customerName,
             contact: checkoutDetails.customerPhone,
+            ...(checkoutDetails.customerEmail && checkoutDetails.customerEmail.includes('@')
+              ? { email: checkoutDetails.customerEmail }
+              : {}),
           },
           theme: { color: '#5B214F' },
           handler: async (res: any) => {

@@ -919,7 +919,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       customerId,
       customerName,
       customerPhone,
-      customerEmail,
+      customerEmail: customerEmail && customerEmail.includes('@') ? customerEmail.trim() : undefined,
       address: orderAddress,
       items: [...cart.items],
       pricingModelSummary: isPerKg ? 'PER_KG' : 'PER_ITEM',
