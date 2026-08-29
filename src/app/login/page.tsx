@@ -18,6 +18,12 @@ import {
   KeyRound,
   Sparkles,
 } from 'lucide-react';
+import {
+  auth,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  type ConfirmationResult,
+} from '@/lib/firebase';
 
 /* ── constants ─────────────────────────────────────────────────────────── */
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
@@ -51,6 +57,7 @@ export default function LoginPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [isNewUser, setIsNewUser] = useState(false);
   const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -73,7 +80,37 @@ export default function LoginPage() {
     if (params.get('email')) setEmail(params.get('email') || '');
   }, []);
 
-  /* ── STEP 1: enter phone → send direct backend OTP ── */
+  /* ── Firebase Real SMS Phone Authentication Trigger ── */
+  const triggerFirebasePhoneAuth = async (targetPhone: string): Promise<boolean> => {
+    if (!auth || typeof window === 'undefined') return false;
+    try {
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+        } catch {}
+        (window as any).recaptchaVerifier = null;
+      }
+
+      const appVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {},
+      });
+      (window as any).recaptchaVerifier = appVerifier;
+      await appVerifier.render();
+
+      const confirmation = await signInWithPhoneNumber(auth, `+91${targetPhone}`, appVerifier);
+      setConfirmationResult(confirmation);
+      setResendTimer(60);
+      setStep('OTP');
+      showToast(`📱 Firebase SMS OTP sent to +91 ${targetPhone}`, 'success');
+      return true;
+    } catch (fbErr: any) {
+      console.warn('[Firebase Auth] Phone SMS notice:', fbErr?.message || fbErr);
+      return false;
+    }
+  };
+
+  /* ── STEP 1: enter phone → send real Firebase SMS OTP or backend fallback ── */
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (phone.length !== 10) {
@@ -82,6 +119,14 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
+      // 1. Try Real Firebase Phone Auth SMS
+      const firebaseSent = await triggerFirebasePhoneAuth(phone);
+      if (firebaseSent) {
+        setLoading(false);
+        return;
+      }
+
+      // 2. Direct Backend SMS Fallback
       const res = await fetch(`${API}/customers/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,6 +170,12 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
+      const firebaseSent = await triggerFirebasePhoneAuth(phone);
+      if (firebaseSent) {
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${API}/customers/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,6 +232,38 @@ export default function LoginPage() {
     if (!codeToVerify || codeToVerify.length !== 6) return;
     setLoading(true);
     try {
+      // 1. If Firebase confirmationResult exists, verify with Firebase first
+      if (confirmationResult) {
+        try {
+          const userCred = await confirmationResult.confirm(codeToVerify);
+          const idToken = await userCred.user.getIdToken();
+
+          const loginRes = await fetch(`${API}/customers/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ phone }),
+          });
+          const loginData = await loginRes.json().catch(() => ({}));
+
+          if (loginRes.ok && loginData.success) {
+            saveSession(loginData);
+            window.dispatchEvent(new Event('lf-auth-changed'));
+            showToast(`Welcome back, ${loginData.user?.name || 'Customer'}! 👋`, 'success');
+            const params = new URLSearchParams(window.location.search);
+            const redirectTarget = params.get('redirect') || '/book';
+            router.push(redirectTarget);
+            return;
+          }
+        } catch (fbErr: any) {
+          console.warn('[Firebase Auth] Confirm attempt notice:', fbErr?.message || fbErr);
+          // Fall through to backend direct OTP check
+        }
+      }
+
+      // 2. Direct Backend OTP verification fallback
       const res = await fetch(`${API}/customers/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -685,6 +768,10 @@ export default function LoginPage() {
           </div>
         </div>
       </main>
+
+      {/* Invisible Firebase Recaptcha Verifier Target */}
+      <div id="recaptcha-container" />
+
       <Footer />
     </div>
   );
