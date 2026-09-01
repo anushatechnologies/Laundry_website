@@ -41,6 +41,7 @@ import { GarmentImage } from '@/components/common/GarmentImage';
 import { useApp } from '@/context/AppContext';
 import {
   markRazorpayPaymentFailed,
+  getBackendTracking,
   reserveBackendSlot,
   createRazorpayPaymentOrder,
   verifyRazorpayPayment,
@@ -692,10 +693,27 @@ function BookingWizardContent() {
           },
           modal: {
             ondismiss: async () => {
-              await markRazorpayPaymentFailed(order.id);
+              setIsProcessing(true);
+              showToast('Verifying payment confirmation...', 'info');
+              let isPaid = false;
+              for (let attempt = 0; attempt < 3; attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                const tracking = await getBackendTracking(order.id);
+                if (tracking && (tracking as any).paymentStatus === 'PAID') {
+                  isPaid = true;
+                  break;
+                }
+              }
               setIsProcessing(false);
-              showToast('Payment window closed. Your order is placed and you can pay on pickup.', 'info');
-              router.push(`/track/${order.id}`);
+
+              if (isPaid) {
+                showToast('🎉 Payment confirmed! Your order is scheduled for pickup.', 'success');
+                router.push(`/track/${order.id}`);
+              } else {
+                await markRazorpayPaymentFailed(order.id).catch(() => {});
+                showToast('Payment window closed. If money was debited, your order will automatically update once verified.', 'info');
+                router.push(`/track/${order.id}`);
+              }
             },
           },
         });
