@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   auth,
+  firebasePhoneErrorMessage,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   type ConfirmationResult,
@@ -56,7 +57,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [isNewUser, setIsNewUser] = useState(false);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -81,8 +81,12 @@ export default function LoginPage() {
   }, []);
 
   /* ── Firebase Real SMS Phone Authentication Trigger ── */
-  const triggerFirebasePhoneAuth = async (targetPhone: string): Promise<boolean> => {
-    if (!auth || typeof window === 'undefined') return false;
+  const triggerFirebasePhoneAuth = async (targetPhone: string, nextStep: Extract<Step, 'OTP' | 'REG_OTP'>): Promise<void> => {
+    if (!auth || typeof window === 'undefined') {
+      throw new Error('Firebase phone verification is unavailable in this browser. Please try again in a supported browser.');
+    }
+
+    setConfirmationResult(null);
     try {
       if ((window as any).recaptchaVerifier) {
         try {
@@ -101,12 +105,11 @@ export default function LoginPage() {
       const confirmation = await signInWithPhoneNumber(auth, `+91${targetPhone}`, appVerifier);
       setConfirmationResult(confirmation);
       setResendTimer(60);
-      setStep('OTP');
-      showToast(`📱 Firebase SMS OTP sent to +91 ${targetPhone}`, 'success');
-      return true;
-    } catch (fbErr: any) {
-      console.warn('[Firebase Auth] Phone SMS notice:', fbErr?.message || fbErr);
-      return false;
+      setStep(nextStep);
+      showToast(`Firebase verification code sent to +91 ${targetPhone}`, 'success');
+    } catch (error) {
+      console.warn('[Firebase Auth] Phone SMS error:', error);
+      throw new Error(firebasePhoneErrorMessage(error));
     }
   };
 
@@ -142,29 +145,8 @@ export default function LoginPage() {
         return;
       }
 
-      // If existing customer → Trigger Firebase Phone Auth SMS directly
-      const firebaseSent = await triggerFirebasePhoneAuth(phone);
-      if (firebaseSent) {
-        setStep('OTP');
-        setLoading(false);
-        return;
-      }
-
-      // Direct Backend SMS Fallback
-      const res = await fetch(`${API}/customers/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to send OTP code.');
-      }
-
-      setResendTimer(60);
-      setStep('OTP');
-      showToast(`Verification OTP sent to +91 ${phone}`, 'success');
+      // Firebase is the only OTP provider. Its errors are shown to the customer.
+      await triggerFirebasePhoneAuth(phone, 'OTP');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to send OTP. Please try again.', 'error');
     } finally {
@@ -186,26 +168,9 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      // 1. Trigger Firebase Phone Auth SMS
-      const firebaseSent = await triggerFirebasePhoneAuth(phone);
-      if (firebaseSent) {
-        setStep('REG_OTP');
-        setLoading(false);
-        return;
-      }
-
-      // 2. Direct backend fallback
-      const res = await fetch(`${API}/customers/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, name: name.trim(), email: email.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      setResendTimer(60);
-      setStep('REG_OTP');
-      showToast(`Verification code sent to mobile +91 ${phone}`, 'success');
-    } catch {
-      setStep('REG_OTP');
+      await triggerFirebasePhoneAuth(phone, 'REG_OTP');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Firebase could not send a verification code.', 'error');
     } finally {
       setLoading(false);
     }
@@ -250,23 +215,25 @@ export default function LoginPage() {
     if (!codeToVerify || codeToVerify.length !== 6) return;
     setLoading(true);
     try {
-      // 1. If Firebase confirmationResult exists, verify with Firebase first
+      if (!confirmationResult) {
+        throw new Error('Your Firebase verification session has expired. Please request a new code.');
+      }
+
+      let verifiedIdToken: string | null = null;
+      // Firebase must verify the submitted code before the backend can issue an app session.
       if (confirmationResult) {
         try {
           const userCred = await confirmationResult.confirm(codeToVerify);
           const idToken = await userCred.user.getIdToken();
+          verifiedIdToken = idToken;
 
-          const loginRes = await fetch(`${API}/customers/login`, {
+          const loginRes = await fetch(`${API}/customers/firebase-login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${idToken}`,
             },
-            body: JSON.stringify({
-              phone,
-              name: name.trim(),
-              email: email.trim(),
-            }),
+            body: JSON.stringify({ name: name.trim(), email: email.trim() }),
           });
           const loginData = await loginRes.json().catch(() => ({}));
 
@@ -279,27 +246,22 @@ export default function LoginPage() {
             router.push(redirectTarget);
             return;
           }
-        } catch (fbErr: any) {
-          console.warn('[Firebase Auth] Confirm attempt notice:', fbErr?.message || fbErr);
-          // Fall through to backend direct OTP check
+        } catch (error) {
+          console.warn('[Firebase Auth] Confirm attempt error:', error);
+          throw new Error(firebasePhoneErrorMessage(error));
         }
       }
 
-      // 2. Direct Backend OTP verification fallback
-      const res = await fetch(`${API}/customers/verify-otp`, {
+      // Retry the Firebase-token sign-in only; no server OTP is ever accepted.
+      const res = await fetch(`${API}/customers/firebase-login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          otp: codeToVerify,
-          name: name.trim(),
-          email: email.trim(),
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${verifiedIdToken}` },
+        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
       });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Invalid OTP. Please check and try again.');
+        throw new Error(data.message || 'Firebase verification could not sign you in. Please request a new code.');
       }
 
       // Save tokens & user profile in localStorage
@@ -318,7 +280,7 @@ export default function LoginPage() {
       const redirectTarget = params.get('redirect') || '/book';
       router.push(redirectTarget);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Verification failed.', 'error');
+      showToast(err instanceof Error ? firebasePhoneErrorMessage(err) : 'Firebase verification failed. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -379,17 +341,9 @@ export default function LoginPage() {
     }
   };
 
-  const fillAutoOtp = (code: string) => {
-    if (!code || code.length !== 6) return;
-    const digits = code.split('');
-    setOtp(digits);
-    showToast('OTP auto-filled!', 'success');
-    executeVerifyOtp(code);
-  };
-
   const otpCode = otp.join('');
 
-  /* ── STEP 3: verify OTP → call backend direct verify → save tokens ── */
+  /* ── STEP 3: Firebase confirms OTP → backend verifies Firebase token ── */
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otpCode.length !== 6) {
@@ -405,15 +359,7 @@ export default function LoginPage() {
     setOtp(['', '', '', '', '', '']);
     setLoading(true);
     try {
-      const res = await fetch(`${API}/customers/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, name, email }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.devOtp) setDevOtp(data.devOtp);
-      setResendTimer(60);
-      showToast(`OTP resent to +91 ${phone}`, 'success');
+      await triggerFirebasePhoneAuth(phone, step === 'REG_OTP' ? 'REG_OTP' : 'OTP');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Resend failed', 'error');
     } finally {
