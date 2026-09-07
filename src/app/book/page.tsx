@@ -1149,6 +1149,16 @@ function BookingWizardContent() {
                       {cartTotals.deliveryFee === 0 ? 'FREE' : `₹${cartTotals.deliveryFee}`}
                     </span>
                   </div>
+                  {liveFare && (
+                    <div className="text-[10px] text-[#9E8A98] pl-1 -mt-1">
+                      {liveFare.distanceKm > 0 && (
+                        <span>📍 {liveFare.distanceKm} km from store</span>
+                      )}
+                      {liveFare.calculationNote && (
+                        <span className="block opacity-75">{liveFare.calculationNote}</span>
+                      )}
+                    </div>
+                  )}
                   {cartTotals.expressFee > 0 && (
                     <div className="flex justify-between text-[#6F626A]">
                       <span>Express 24h Priority:</span>

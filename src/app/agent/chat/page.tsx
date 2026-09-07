@@ -123,7 +123,7 @@ export default function AgentChatDashboard() {
       fetchRooms();
     });
 
-    newSocket.on('user_typing', (data) => {
+    newSocket.on('user_typing', (data: { roomId?: string; userId?: string }) => {
       if (selectedRoom && data.roomId === selectedRoom.id && data.userId !== agentId) {
         setIsTyping(true);
         setTimeout(() => setIsTyping(false), 3000);

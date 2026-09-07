@@ -162,17 +162,41 @@ export const getNearestHubs = (params: {
   return fetchFromBackend<any[]>(`/hubs/nearest?${qs.toString()}`);
 };
 
-export const calculateDeliveryFare = (payload: {
+export const calculateDeliveryFare = async (payload: {
   customerLat?: number;
   customerLng?: number;
   customerPincode?: string;
   orderTotal?: number;
   isExpress?: boolean;
-}) =>
-  fetchFromBackend<any>('/hubs/calculate-fare', {
+}) => {
+  // Try the admin-configurable distance-based endpoint first
+  try {
+    const result = await fetchFromBackend<any>('/services/calculate-delivery-fee', {
+      method: 'POST',
+      body: JSON.stringify({
+        customerLat: payload.customerLat,
+        customerLng: payload.customerLng,
+        customerPincode: payload.customerPincode,
+        subtotal: payload.orderTotal || 0,
+        isExpress: payload.isExpress,
+      }),
+    });
+    if (result && typeof result.deliveryFee === 'number') {
+      return {
+        deliveryFee: result.deliveryFee,
+        distanceKm: result.distanceKm,
+        isFreeDelivery: result.isFreeDelivery ?? (result.deliveryFee === 0),
+        calculationNote: result.breakdown,
+        assignedHub: result.storeName ? { name: result.storeName, city: 'Hyderabad' } : undefined,
+      };
+    }
+  } catch { /* fall through to hub-based */ }
+  // Fallback: hub-based calculation
+  return fetchFromBackend<any>('/hubs/calculate-fare', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+};
 
 export const getNearestHubForPincode = (pincode: string) =>
   fetchFromBackend<any>(`/hubs/nearest-for-pincode?pincode=${encodeURIComponent(pincode)}`);
