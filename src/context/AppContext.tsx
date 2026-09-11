@@ -694,7 +694,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       return { ...prev, items: updatedItems };
     });
-    showToast(`Added "${service.name}" to bag`, 'success');
   };
 
   const removeFromCart = (serviceId: string) => {
@@ -702,7 +701,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       items: prev.items.filter((item) => item.id !== serviceId && item.serviceId !== serviceId),
     }));
-    showToast('Item removed from bag', 'info');
   };
 
   const updateCartQuantity = (serviceId: string, quantity: number) => {
@@ -861,7 +859,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       return { ...prev, items: updatedItems };
     });
-    showToast(`Added ${quantity}x ${cloth.name} (${priceItem.serviceName}) to bag`, 'success');
   };
 
   // Cart Totals calculation (Dynamically powered by admin pricingSettings)
