@@ -38,7 +38,7 @@ export default function AgentChatDashboard() {
   const [inputMessage, setInputMessage] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
   const [agentId] = useState('agent_priya_001'); // In production, get from auth
-  const [agentName] = useState('Priya M.');
+  const [agentName] = useState('RAMYA.');
   const [isConnected, setIsConnected] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
