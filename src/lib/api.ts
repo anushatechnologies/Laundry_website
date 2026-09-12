@@ -200,3 +200,12 @@ export const calculateDeliveryFare = async (payload: {
 
 export const getNearestHubForPincode = (pincode: string) =>
   fetchFromBackend<any>(`/hubs/nearest-for-pincode?pincode=${encodeURIComponent(pincode)}`);
+
+export const cancelOrder = (orderId: string, payload?: { customerId?: string; reason?: string }) =>
+  fetchFromBackend<{ success: boolean; data?: any; refundAmount: number; restoredKg: number; message: string }>(
+    `/orders/${encodeURIComponent(orderId)}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    }
+  );

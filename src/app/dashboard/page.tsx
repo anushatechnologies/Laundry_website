@@ -29,16 +29,19 @@ import {
   ShieldCheck,
   AlertCircle,
   X,
+  XCircle,
   Trash2,
   Home as HomeIcon,
   Briefcase,
 } from 'lucide-react';
 import { Order } from '@/types';
+import { cancelOrder } from '@/lib/api';
 
 export default function CustomerDashboardPage() {
   const {
     currentUser,
     orders,
+    refreshOrders,
     wallet,
     rechargeWallet,
     savedAddresses,
@@ -128,6 +131,37 @@ export default function CustomerDashboardPage() {
       : orderFilter === 'CANCELLED'
       ? cancelledOrders
       : orders;
+
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+
+  const handleCancelOrder = async (order: Order) => {
+    const paidAmount = (order.paymentStatus === 'PAID' ? order.totalAmount : 0) + (order.walletDeduction || 0);
+    const hasSub = Boolean(order.customerSubscriptionId);
+
+    let confirmMsg = `Are you sure you want to cancel Order #${order.id}?`;
+    if (paidAmount > 0) {
+      confirmMsg += `\n\n₹${paidAmount.toFixed(2)} paid for this order will be credited immediately to your LaundryFresh Wallet.`;
+    }
+    if (hasSub) {
+      confirmMsg += `\n\nSubscription quota used for this order will be restored to your active subscription.`;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setCancellingOrderId(order.id);
+      const res = await cancelOrder(order.id, {
+        customerId: order.customerId,
+        reason: 'Customer cancelled from dashboard',
+      });
+      refreshOrders();
+      showToast(res?.message || 'Order cancelled successfully. Refunds credited to wallet.', 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to cancel order. Please try again.', 'error');
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
 
   const handleCopyReferral = () => {
     navigator.clipboard.writeText('LAUNDRY100');
@@ -386,7 +420,13 @@ export default function CustomerDashboardPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <h3 className="font-extrabold text-base text-[#241A21]">#{order.id}</h3>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F0FDF4] text-[#15803D] border border-emerald-200">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          order.currentStatus === 'CANCELLED'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-[#F0FDF4] text-[#15803D] border border-emerald-200'
+                        }`}
+                      >
                         {order.currentStatus.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -402,6 +442,16 @@ export default function CustomerDashboardPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(order.currentStatus) && (
+                      <button
+                        onClick={() => handleCancelOrder(order)}
+                        disabled={cancellingOrderId === order.id}
+                        className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-[10px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>{cancellingOrderId === order.id ? 'Cancelling...' : 'Cancel'}</span>
+                      </button>
+                    )}
                     <Link
                       href={`/track/${order.id}`}
                       className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold rounded-[10px] transition-all shadow-xs"

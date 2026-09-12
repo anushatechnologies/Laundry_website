@@ -149,6 +149,11 @@ export interface Order {
   itemTotal: number;
   discountAmount: number;
   couponCode?: string;
+  customerSubscriptionId?: string;
+  subscriptionPlanName?: string;
+  subscriptionKgUsed?: number;
+  subscriptionDiscount?: number;
+  walletDeduction?: number;
   pickupDeliveryFee: number;
   expressFee: number;
   taxAmount: number;

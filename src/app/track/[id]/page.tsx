@@ -21,13 +21,14 @@ import {
   ChevronRight,
   ShieldAlert,
   X,
+  XCircle,
   Tag,
   ThumbsUp,
 } from 'lucide-react';
 import { OrderStatus, DisputeType } from '@/types';
 import { GarmentImage } from '@/components/common/GarmentImage';
 import Link from 'next/link';
-import { getBackendTracking } from '@/lib/api';
+import { getBackendTracking, cancelOrder } from '@/lib/api';
 
 type PublicTrackingData = {
   id: string;
@@ -88,11 +89,12 @@ function PublicTrackingView({ tracking }: { tracking: PublicTrackingData }) {
 export default function TrackOrderPage() {
   const params = useParams();
   const orderId = (params?.id as string) || '';
-  const { getOrderById, approvePriceAdjustment, createDispute } = useApp();
+  const { getOrderById, approvePriceAdjustment, createDispute, refreshOrders } = useApp();
 
   const order = getOrderById(orderId);
   const [publicTracking, setPublicTracking] = useState<PublicTrackingData | null>(null);
   const [isLoadingTracking, setIsLoadingTracking] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
 
@@ -110,6 +112,38 @@ export default function TrackOrderPage() {
       .finally(() => { if (active) setIsLoadingTracking(false); });
     return () => { active = false; };
   }, [order, orderId]);
+
+  const canCancel = order && ['ORDER_PLACED', 'PICKUP_ASSIGNED'].includes(order.currentStatus);
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    const paidAmount = (order.paymentStatus === 'PAID' ? order.totalAmount : 0) + (order.walletDeduction || 0);
+    const hasSub = Boolean(order.customerSubscriptionId);
+
+    let confirmMsg = `Are you sure you want to cancel Order #${order.id}?`;
+    if (paidAmount > 0) {
+      confirmMsg += `\n\n₹${paidAmount.toFixed(2)} paid for this order will be refunded immediately into your LaundryFresh Wallet.`;
+    }
+    if (hasSub) {
+      confirmMsg += `\n\nSubscription quota used for this order will be restored to your subscription.`;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setIsCancelling(true);
+      const res = await cancelOrder(order.id, {
+        customerId: order.customerId,
+        reason: 'Customer cancelled from tracking page',
+      });
+      refreshOrders();
+      alert(res?.message || 'Order cancelled successfully. Any payments or subscriptions have been refunded.');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to cancel order. Please try again or contact support.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const ALL_STATUS_STAGES: { status: OrderStatus; label: string; icon: string }[] = [
     { status: 'ORDER_PLACED', label: 'Order Placed', icon: '📝' },
@@ -189,6 +223,16 @@ export default function TrackOrderPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {canCancel && (
+              <button
+                onClick={handleCancelOrder}
+                disabled={isCancelling}
+                className="px-4 py-2 bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-400 text-rose-600 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+              >
+                <XCircle className="w-4 h-4 text-rose-600" />
+                <span>{isCancelling ? 'Cancelling...' : 'Cancel Order'}</span>
+              </button>
+            )}
             <button
               onClick={() => setShowDisputeModal(true)}
               className="px-4 py-2 bg-white border border-[#E8DDE1] hover:border-red-500 text-red-700 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
@@ -205,6 +249,31 @@ export default function TrackOrderPage() {
             </button>
           </div>
         </div>
+
+        {/* Cancelled & Refunded Notice Banner */}
+        {order.currentStatus === 'CANCELLED' && (
+          <div className="mb-6 p-5 bg-rose-50 rounded-3xl border border-rose-200 shadow-2xs animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 text-lg shrink-0">
+                <XCircle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-rose-950">
+                  Order Cancelled
+                </h3>
+                <p className="text-xs text-rose-800/90 mt-0.5">
+                  This order has been cancelled. Any amount paid (online payment or wallet balance) has been refunded directly into your LaundryFresh Wallet. Any subscription quota used for this order has also been restored.
+                </p>
+                {order.paymentStatus === 'REFUNDED' && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100/80 text-rose-800 text-xs font-bold">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Refund Status: Credited to Wallet</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Required Banner: Price Reconciliation Consent */}
         {order.weightVerification?.status === 'PENDING_APPROVAL' && (
